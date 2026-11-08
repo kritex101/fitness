@@ -27,10 +27,18 @@ export const genderOptions = [
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ] as const
 
+export const activityLevels = [
+  { value: 'sedentary', label: 'Mostly sitting', multiplier: 1.2 },
+  { value: 'lightly_active', label: 'Light activity', multiplier: 1.375 },
+  { value: 'moderately_active', label: 'Moderate activity', multiplier: 1.55 },
+  { value: 'very_active', label: 'High activity', multiplier: 1.725 },
+] as const
+
 export type FitnessGoal = (typeof goals)[number]['value']
 export type ExperienceLevel = (typeof experienceLevels)[number]['value']
 export type TrainingEnvironment = (typeof trainingEnvironments)[number]['value']
 export type GenderIdentity = (typeof genderOptions)[number]['value']
+export type ActivityLevel = (typeof activityLevels)[number]['value']
 export type ExerciseVisualGender = 'male' | 'female'
 
 export type FitnessProfile = {
@@ -43,6 +51,32 @@ export type FitnessProfile = {
   goal: FitnessGoal
   experience: ExperienceLevel
   environment: TrainingEnvironment
+}
+
+export type MetricSnapshot = {
+  id: string
+  weightKg: number
+  heightCm: number
+  age: number
+  gender: GenderIdentity
+  activityLevel: ActivityLevel
+  bmi: number
+  dailyCalorieTarget: number
+  createdAt: string
+}
+
+export type BodyMetricsInput = Pick<MetricSnapshot, 'weightKg' | 'heightCm' | 'age' | 'gender' | 'activityLevel'>
+
+export function calculateBodyMetrics(input: BodyMetricsInput, goal: FitnessGoal) {
+  const heightMeters = input.heightCm / 100
+  const bmi = Math.round((input.weightKg / (heightMeters * heightMeters)) * 100) / 100
+  const genderAdjustment = input.gender === 'man' ? 5 : input.gender === 'woman' ? -161 : -78
+  const activityMultiplier = activityLevels.find((level) => level.value === input.activityLevel)?.multiplier ?? 1.2
+  const goalAdjustment = goal === 'lose_weight' ? -300 : goal === 'get_lean' ? -150 : goal === 'gain_muscle_weight' ? 200 : 150
+  const basalMetabolicRate = 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age + genderAdjustment
+  const dailyCalorieTarget = Math.max(1200, Math.round(basalMetabolicRate * activityMultiplier + goalAdjustment))
+
+  return { bmi, dailyCalorieTarget }
 }
 
 export const bodyAreas = [

@@ -24,8 +24,8 @@ async function fetchVideos(url: string): Promise<YouTubeSearchResponse> {
   return payload
 }
 
-export function ExerciseVideoSearch({ exerciseId, exerciseName, gender }: { exerciseId: string; exerciseName: string; gender: ExerciseVisualGender }) {
-  const [isOpen, setIsOpen] = useState(false)
+export function ExerciseVideoSearch({ exerciseId, exerciseName, gender, autoLoad = false }: { exerciseId: string; exerciseName: string; gender: ExerciseVisualGender; autoLoad?: boolean }) {
+  const [isOpen, setIsOpen] = useState(autoLoad)
   const [searchTerm, setSearchTerm] = useState(exerciseName)
   const [submittedSearch, setSubmittedSearch] = useState(exerciseName)
   const resultsId = `exercise-video-results-${exerciseId}`
@@ -50,7 +50,7 @@ export function ExerciseVideoSearch({ exerciseId, exerciseName, gender }: { exer
 
   return (
     <>
-      <button
+      {!autoLoad && <button
         className="video-tutorial-link"
         type="button"
         aria-expanded={isOpen}
@@ -59,16 +59,16 @@ export function ExerciseVideoSearch({ exerciseId, exerciseName, gender }: { exer
       >
         <PlayCircle size={17} aria-hidden="true" />
         {isOpen ? 'Hide video demonstrations' : 'Find video demonstrations'}
-      </button>
+      </button>}
       {isOpen && (
         <section id={resultsId} className="exercise-video-results" aria-label={`${gender} ${submittedSearch} video demonstrations`} aria-busy={isLoading}>
-          <form className="exercise-video-search-form" onSubmit={searchForExercise}>
+          {!autoLoad && <form className="exercise-video-search-form" onSubmit={searchForExercise}>
             <label htmlFor={searchInputId}>Search a specific exercise</label>
             <div className="exercise-video-search-fields">
               <input id={searchInputId} type="search" value={searchTerm} maxLength={80} onChange={(event) => setSearchTerm(event.target.value)} placeholder="e.g. dumbbell row" />
               <button type="submit" disabled={searchTerm.trim().length < 2}>Search</button>
             </div>
-          </form>
+          </form>}
           {isLoading && <p className="video-search-feedback" role="status"><LoaderCircle size={16} aria-hidden="true" /> Searching YouTube…</p>}
           {error && (
             <p className="video-search-feedback" role="alert">
@@ -92,7 +92,7 @@ export function ExerciseVideoSearch({ exerciseId, exerciseName, gender }: { exer
                   allowFullScreen
                 />
               </div>
-              <div className="exercise-video-caption">
+              {!autoLoad && <div className="exercise-video-caption">
                 <div>
                   <h4>{data.videos[0].title}</h4>
                   <p>{data.videos[0].channelTitle}</p>
@@ -101,8 +101,8 @@ export function ExerciseVideoSearch({ exerciseId, exerciseName, gender }: { exer
                   <ExternalLink size={15} aria-hidden="true" />
                   <span>Open on YouTube</span>
                 </a>
-              </div>
-              {data.videos.length > 1 && (
+              </div>}
+              {!autoLoad && data.videos.length > 1 && (
                 <ul className="exercise-video-alternatives" aria-label="More video matches">
                   {data.videos.slice(1, 4).map((video) => (
                     <li key={video.videoId}>

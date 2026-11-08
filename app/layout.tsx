@@ -8,7 +8,7 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 
 export const metadata: Metadata = {
   title: 'FitPilot — Training, on your terms',
-  description: 'Private, evidence-informed fitness plans with body-area exercise guides, coach-matched tutorials, timed workout intervals, guided rest, and progress tracking.',
+  description: 'Private, evidence-informed fitness plans with exercise guides, coach-matched tutorials, timed workout intervals, body metric estimates, calorie targets, and progress trends.',
   applicationName: 'FitPilot',
   manifest: '/manifest.webmanifest',
   appleWebApp: {

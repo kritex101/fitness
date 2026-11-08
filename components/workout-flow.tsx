@@ -45,6 +45,20 @@ function formatTime(seconds: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+function playTimerCue(context: AudioContext, isFinalCue: boolean) {
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = 'sine'
+  oscillator.frequency.setValueAtTime(isFinalCue ? 880 : 620, context.currentTime)
+  gain.gain.setValueAtTime(0.0001, context.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.07, context.currentTime + 0.015)
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.16)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start()
+  oscillator.stop(context.currentTime + 0.17)
+}
+
 export function WorkoutFlow({
   profile,
   visualGender,
@@ -80,6 +94,8 @@ export function WorkoutFlow({
   const [tutorialCueIndex, setTutorialCueIndex] = useState(0)
   const timerSequence = useRef(0)
   const timerFinished = useRef<(() => void) | null>(null)
+  const audioContext = useRef<AudioContext | null>(null)
+  const lastAudioCue = useRef('')
   const tutor = getTutor(visualGender)
   const currentExercise = position && workout ? workout.exercises[position.exerciseIndex] : null
   const currentSet = currentExercise && position ? currentExercise.workoutSets[position.setIndex] : null
@@ -119,10 +135,32 @@ export function WorkoutFlow({
   }, [timer])
 
   useEffect(() => {
+    if (!timer || timer.paused || timer.seconds > 3) return
+    const context = audioContext.current
+    if (!context || context.state !== 'running') return
+    const cueKey = `${timer.id}:${timer.seconds}`
+    if (lastAudioCue.current === cueKey) return
+    lastAudioCue.current = cueKey
+    playTimerCue(context, timer.seconds === 1)
+  }, [timer?.id, timer?.kind, timer?.paused, timer?.seconds])
+
+  useEffect(() => () => {
+    if (audioContext.current && audioContext.current.state !== 'closed') void audioContext.current.close()
+  }, [])
+
+  useEffect(() => {
     if (timer?.kind !== 'tutorial' || !currentExercise) return
     const elapsed = TUTORIAL_SECONDS - timer.seconds
     setTutorialCueIndex(Math.min(currentExercise.instructions.length - 1, Math.floor(elapsed / 3)))
   }, [currentExercise, timer])
+
+  function enableTimerAudio() {
+    const AudioContextConstructor = window.AudioContext
+    if (!AudioContextConstructor) return
+    const context = audioContext.current ?? new AudioContextConstructor()
+    audioContext.current = context
+    if (context.state === 'suspended') void context.resume().catch(() => {})
+  }
 
   function startTimer(kind: TimerKind, seconds: number, onFinish: () => void) {
     timerSequence.current += 1
@@ -137,6 +175,7 @@ export function WorkoutFlow({
 
   async function beginSession(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    enableTimerAudio()
     setBusy(true)
     setError('')
     try {
@@ -154,12 +193,14 @@ export function WorkoutFlow({
 
   function playTutorial() {
     if (!currentExercise) return
+    enableTimerAudio()
     setStage('tutorial')
     setTutorialCueIndex(0)
     startTimer('tutorial', TUTORIAL_SECONDS, () => setStage('ready'))
   }
 
   function beginInterval() {
+    enableTimerAudio()
     setStage('active')
     setWorkIntervalFinished(false)
     startTimer('work', WORK_SECONDS, () => setWorkIntervalFinished(true))
@@ -250,7 +291,7 @@ export function WorkoutFlow({
             <Image src={tutor.image} alt={tutor.alt} width={960} height={720} className="trainer-photo" priority />
             <div className="trainer-scrim" />
             <div className="trainer-badge"><span>YOUR FITPILOT COACH</span><strong>{tutor.name}</strong></div>
-            {timer && <div className="timer-card"><span>{timerLabel}</span><strong aria-label={`${timer.seconds} seconds remaining`} aria-live="off">{formatTime(timer.seconds)}</strong><button type="button" aria-label={timer.paused ? 'Resume timer' : 'Pause timer'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={16} /> : <Pause size={16} />}</button></div>}
+            {timer && <div className={`timer-card ${timer.kind === 'work' ? 'timer-card-work' : ''}`}><span>{timerLabel}</span><strong aria-label={`${timer.seconds} seconds remaining`} aria-live="off">{formatTime(timer.seconds)}</strong>{timer.kind !== 'work' && <button type="button" aria-label={timer.paused ? 'Resume timer' : 'Pause timer'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={16} /> : <Pause size={16} />}</button>}</div>}
             {stage === 'rest' && <div className="rest-message"><span>RECOVER AT YOUR PACE</span><strong>Slow breath in.<br />Long breath out.</strong></div>}
           </div>
           <div className="workout-guidance-layout">
@@ -262,11 +303,12 @@ export function WorkoutFlow({
             <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
               <span className="eyebrow">VISUAL GUIDE</span>
               <h4>Watch the movement</h4>
-              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} gender={visualGender} />
+              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} gender={visualGender} autoLoad />
             </aside>
           </div>
           {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Tutorial complete. Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={playTutorial}><RotateCcw size={15} /> Replay tutorial</button></div>}
           {stage === 'active' && <div className="player-action-panel">
+            {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" aria-label={timer.paused ? 'Resume work interval' : 'Pause work interval'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={15} /> : <Pause size={15} />}{timer.paused ? 'Resume interval' : 'Pause interval'}</button>}
             <div className="set-entry-row"><label className="field"><span>Reps completed</span><input type="number" min={1} max={100} value={currentSet.repsCompleted ?? currentSet.targetReps} onChange={(event) => updateCurrentSet({ repsCompleted: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="field"><span>Load <b>kg</b></span><input type="number" min={0} max={500} step="0.5" placeholder="Optional" value={currentSet.weightKg ?? ''} onChange={(event) => updateCurrentSet({ weightKg: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>
             {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" onClick={finishIntervalEarly}><SkipForward size={15} /> Finish interval early</button>}
             {!timer && <p className="form-note" role="status">Interval complete. Record your set, then take your recovery break.</p>}

@@ -7,9 +7,10 @@ import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 import { ExerciseLibrary } from '@/components/exercise-library'
 import { WeeklyTrainingSchedule } from '@/components/weekly-training-schedule'
 import { ProgressPanel } from '@/components/progress-panel'
+import { BodyMetricsPanel } from '@/components/body-metrics-panel'
 import { WorkoutFlow } from '@/components/workout-flow'
 import { authClient } from '@/lib/auth-client'
-import { buildWorkoutPlan, labelForEnvironment, labelForExperience, labelForGoal, weeklySessionTarget, type ExerciseVisualGender, type FitnessProfile } from '@/lib/fitness-data'
+import { buildWorkoutPlan, labelForEnvironment, labelForExperience, labelForGoal, weeklySessionTarget, type ExerciseVisualGender, type FitnessProfile, type MetricSnapshot } from '@/lib/fitness-data'
 import type { ActiveWorkoutState } from '@/app/actions/fitness'
 
 type Checkin = { id: string; weightKg: number; reflection: string; createdAt: string }
@@ -49,12 +50,14 @@ export function FitPilotDashboard({
   profile,
   checkins,
   sessions,
+  metrics,
   activeWorkout: initialWorkout,
   email,
 }: {
   profile: FitnessProfile
   checkins: Checkin[]
   sessions: WorkoutSession[]
+  metrics: MetricSnapshot[]
   activeWorkout: ActiveWorkoutState | null
   email: string
 }) {
@@ -126,8 +129,9 @@ export function FitPilotDashboard({
             <section className="panel week-panel" aria-labelledby="week-heading"><div className="panel-heading"><div><h2 id="week-heading">Your week</h2><p>{completedSessions.length} sessions completed overall</p></div><span className="panel-icon"><CalendarDays size={17} /></span></div><div className="week-strip" role="list" aria-label="Current week activity">{week.map((day, index) => <div className={`day-cell ${day.today ? 'day-today' : ''}`} key={`${day.label}-${index}`} role="listitem"><span className="day-name">{day.label}</span><span className="day-number">{day.date}</span><span className={`day-check ${day.done ? 'is-done' : ''}`}>{day.done && <Check size={11} strokeWidth={3} />}</span></div>)}</div><div className="week-summary"><span><span className="summary-mark"><Check size={13} /></span> {completedThisWeek} of {trainingGoalDays} weekly sessions</span><strong>{Math.min(100, Math.round((completedThisWeek / trainingGoalDays) * 100))}%</strong></div><div className="progress-track"><span style={{ width: `${Math.min(100, (completedThisWeek / trainingGoalDays) * 100)}%` }} /></div></section>
             <section className="panel momentum-panel" aria-labelledby="momentum-heading"><div className="panel-heading"><div><h2 id="momentum-heading">Steady progress</h2><p>Strength is more than the scale.</p></div><button type="button" className="text-link" onClick={() => setActiveNav('Progress')}>See progress <ArrowRight size={14} /></button></div><div className="momentum-main"><span className="momentum-number">{latestWeight.toFixed(1)}<small>kg</small></span><span className="momentum-divider" /><span className="momentum-meta"><strong>{checkins.length} check-ins</strong><small>Latest weight record</small></span></div><div className="momentum-note">{completedSessions.length ? `${completedSessions.length} completed sessions saved to your history.` : 'Your first completed workout will appear in your progress history.'}</div></section>
             <section className="panel lineup-panel" aria-labelledby="lineup-heading"><div className="panel-heading"><div><h2 id="lineup-heading">Next strength session</h2><p>Variation {String.fromCharCode(65 + (completedThisWeek % 3))} · {plan.length} movements</p></div><button type="button" className="text-link" onClick={() => setActiveNav('Training')}>Exercise guide <ArrowRight size={14} /></button></div><div className="lineup-list">{plan.slice(0, 3).map((exercise, index) => <div className="lineup-row" key={exercise.id}><span className="lineup-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{exercise.name}</strong><small>{exercise.equipment}</small></div><span className="lineup-reps">{exercise.repMin}–{exercise.repMax}</span></div>)}</div></section>
-            <section className="panel goal-panel"><span className="eyebrow">YOUR FOCUS</span><h2>{labelForGoal(profile.goal)}</h2><p>{labelForEnvironment(profile.environment)} · {labelForExperience(profile.experience)}</p><button type="button" className="text-link" onClick={() => setActiveNav('My plan')}>Review your plan <ArrowRight size={14} /></button></section>
+            <section className="panel goal-panel"><span className="eyebrow">YOUR FOCUS</span><h2>{labelForGoal(profile.goal)}</h2><p>{labelForEnvironment(profile.environment)} · {labelForExperience(profile.experience)}</p><button type="button" className="text-link" onClick={() => setActiveNav('My plan')}>Review your plan <ArrowRight size={14} /></button>            </section>
           </div>
+          <BodyMetricsPanel profile={profile} snapshots={metrics} />
         </>}
         {activeNav === 'Training' && <section className="page-section"><div className="section-heading"><div><p className="eyebrow">BUILT AROUND YOUR GOAL</p><h1>Your training guide</h1><p>{plan.length} exercises for {labelForEnvironment(profile.environment).toLowerCase()}. Start light, focus on control, and progress gradually.</p></div><button className="primary-button" type="button" onClick={openWorkout}>{activeWorkout ? 'Resume session' : 'Start a session'} <ArrowRight size={16} /></button></div><WeeklyTrainingSchedule goal={profile.goal} experience={profile.experience} environment={profile.environment} /><ExerciseLibrary exercises={plan} visualGender={visualGender} onVisualGenderChange={setVisualGender} /></section>}
         {activeNav === 'Progress' && <section className="page-section"><div className="section-heading"><div><p className="eyebrow">YOUR HISTORY, NOT A SCORECARD</p><h1>Progress over time</h1><p>Check-ins, completed sessions, and reflections help you spot meaningful patterns.</p></div><button className="primary-button" type="button" onClick={openWorkout}>{activeWorkout ? 'Resume session' : 'Start a check-in'} <ArrowRight size={16} /></button></div><ProgressPanel checkins={checkins} sessions={sessions} goal={profile.goal} /></section>}
