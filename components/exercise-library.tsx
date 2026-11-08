@@ -1,8 +1,9 @@
 'use client'
 
-import { PlayCircle, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { bodyAreas, exerciseLibrary, type BodyArea, type ExerciseCategory, type PlannedExercise } from '@/lib/fitness-data'
+import { ExerciseVideoSearch } from '@/components/exercise-video-search'
 
 type ExerciseCollection = 'plan' | 'all' | ExerciseCategory
 
@@ -47,7 +48,7 @@ export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exe
         })}
       </div>
       <label className="exercise-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search exercises by name, focus, or equipment</span><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search exercises, equipment, or focus" /></label>
-      <div className="library-results-heading"><div><p className="eyebrow">{selectedCollection === 'plan' ? selectedArea === 'full-body' ? 'YOUR COMPLETE SESSION' : 'TARGETED MOVEMENTS' : selectedArea === 'full-body' ? 'ACTIVITY COLLECTION' : 'TARGETED MOVEMENTS'}</p><h2>{selectedArea === 'full-body' ? collectionTitle : bodyAreas.find((area) => area.value === selectedArea)?.label}</h2></div><span className="coach-match-label">Video tutorial searches open on YouTube</span></div>
+      <div className="library-results-heading"><div><p className="eyebrow">{selectedCollection === 'plan' ? selectedArea === 'full-body' ? 'YOUR COMPLETE SESSION' : 'TARGETED MOVEMENTS' : selectedArea === 'full-body' ? 'ACTIVITY COLLECTION' : 'TARGETED MOVEMENTS'}</p><h2>{selectedArea === 'full-body' ? collectionTitle : bodyAreas.find((area) => area.value === selectedArea)?.label}</h2></div><span className="coach-match-label">Search and preview exercise demonstrations</span></div>
       <div className="exercise-library">
         {visibleExercises.length === 0 && <p className="exercise-empty-state" role="status">No exercises match that search in this collection.</p>}
         {visibleExercises.map((exercise, index) => {
@@ -56,14 +57,13 @@ export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exe
           const repMin = planned?.repMin ?? 8
           const repMax = planned?.repMax ?? 12
   const restSeconds = planned?.restSeconds ?? 60
-  const tutorialQuery = encodeURIComponent(`${exercise.name} exercise demonstration proper form`)
   return <article className="library-card" key={exercise.id}>
             <div className="library-copy">
               <div className="library-card-top"><span className="library-number">{String(index + 1).padStart(2, '0')}</span><span className="exercise-focus">{exercise.focus}</span></div>
               <h3>{exercise.name}</h3>
               <p className="exercise-equipment">{exercise.equipment}</p>
               <div className="prescription">{exercise.duration ? <><strong>Suggested</strong><span>{exercise.duration}</span><span>comfortable pace</span></> : <><strong>{sets} sets</strong><span>{repMin}–{repMax} reps</span><span>{restSeconds}s rest</span></>}</div>
-              <a className="video-tutorial-link" href={`https://www.youtube.com/results?search_query=${tutorialQuery}`} target="_blank" rel="noopener noreferrer" aria-label={`Find a video tutorial for ${exercise.name} on YouTube`}><PlayCircle size={17} aria-hidden="true" />Find a video tutorial</a>
+              <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} />
               <ol className="exercise-instructions">{exercise.instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}</ol>
               <p className="coaching-tip"><strong>Coach&apos;s cue</strong> {exercise.coachingTip}</p>
               {exercise.homeOption && <p className="home-option">{exercise.homeOption}</p>}
