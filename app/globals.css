@@ -391,6 +391,32 @@ h1, h2, h3, p { margin-top: 0; }
 .body-area-option small { color: var(--muted-foreground); font-size: 8px; line-height: 1.4; }
 .body-area-count { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: var(--background); font-size: 9px; font-weight: 750; }
 .body-area-selected { border-color: var(--foreground); background: var(--subtle); }
+.exercise-db-browser { display: grid; gap: 14px; }
+.exercise-db-search-form { display: flex; align-items: end; gap: 10px; }
+.exercise-db-search-field { display: grid; flex: 1; gap: 6px; color: var(--muted-foreground); font-size: 14px; font-weight: 650; }
+.exercise-db-search-input { display: flex; min-height: 42px; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 0 11px; }
+.exercise-db-search-input input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 14px; }
+.exercise-db-search-input input::placeholder { color: var(--muted-foreground); }
+.exercise-db-search-form .primary-button { min-height: 42px; }
+.exercise-db-targets { display: flex; flex-wrap: wrap; gap: 7px; }
+.exercise-db-target-option { border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 7px 10px; color: var(--muted-foreground); font: inherit; font-size: 14px; cursor: pointer; }
+.exercise-db-target-option:hover { border-color: color-mix(in srgb, var(--foreground) 28%, transparent); color: var(--foreground); }
+.exercise-db-target-option.exercise-db-target-selected { border-color: var(--foreground); background: var(--subtle); color: var(--foreground); }
+.exercise-db-result-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.exercise-db-result-count { margin: 0; color: var(--muted-foreground); font-size: 14px; }
+.exercise-db-status { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted-foreground); font-size: 14px; }
+.exercise-db-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); padding: 12px; }
+.exercise-db-error p { margin: 0; color: var(--muted-foreground); font-size: 14px; }
+.exercise-db-error button, .exercise-db-load-more { min-height: 36px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 0 12px; color: var(--foreground); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.exercise-db-load-more { justify-self: center; }
+.exercise-db-load-more:disabled { cursor: wait; opacity: .65; }
+.exercise-db-card-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; }
+.exercise-db-card-meta span { display: flex; flex-wrap: wrap; gap: 5px; color: var(--muted-foreground); font-size: 14px; }
+.exercise-db-card-meta strong { color: var(--foreground); }
+.exercise-db-instructions-heading { margin: 0 0 8px; font-size: 14px; }
+.exercise-db-empty-instructions { margin: 0; color: var(--muted-foreground); font-size: 14px; }
+.exercise-db-browser .exercise-focus, .exercise-db-browser .library-video-panel > .eyebrow, .exercise-db-browser .video-search-feedback { font-size: 14px; }
+.exercise-db-browser .exercise-instructions { gap: 8px; font-size: 14px; line-height: 1.55; }
 .library-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .library-results-heading .eyebrow { margin-bottom: 4px; }
 .library-results-heading h2 { margin: 0; font-size: 21px; letter-spacing: -.045em; }
@@ -445,7 +471,7 @@ h1, h2, h3, p { margin-top: 0; }
 @media (max-width: 760px) { .library-exercise-detail, .workout-guidance-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 680px) { .player-title-row { align-items: flex-start; flex-direction: column; } .player-media-controls { width: 100%; justify-content: space-between; } }
 @media (max-width: 860px) { .exercise-catalog-route { padding-right: 26px; padding-left: 26px; } .body-area-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 680px) { .exercise-catalog-route { padding: 20px 14px 30px; } .exercise-catalog-header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 21px 0; } .exercise-catalog-header h1 { font-size: 29px; } .body-area-picker { gap: 7px; } .body-area-option { min-height: 66px; padding: 9px; } .body-area-option small { font-size: 8px; } .library-results-heading { align-items: flex-start; flex-direction: column; } .trainer-screen { min-height: 240px; } .trainer-badge { margin-left: 14px; margin-bottom: 14px; } .timer-card { margin-right: 10px; margin-bottom: 10px; } .rest-message { top: 14px; left: 14px; } .coach-match-pill { max-width: 125px; font-size: 8px; } .player-title-row h3 { font-size: 18px; } .tutorial-panel, .player-action-panel { padding: 11px; } .set-entry-row { gap: 7px; } }
+@media (max-width: 680px) { .exercise-catalog-route { padding: 20px 14px 30px; } .exercise-catalog-header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 21px 0; } .exercise-catalog-header h1 { font-size: 29px; } .body-area-picker { gap: 7px; } .body-area-option { min-height: 66px; padding: 9px; } .body-area-option small { font-size: 8px; } .exercise-db-search-form { align-items: stretch; flex-direction: column; } .exercise-db-search-form .primary-button { width: 100%; } .library-results-heading { align-items: flex-start; flex-direction: column; } .trainer-screen { min-height: 240px; } .trainer-badge { margin-left: 14px; margin-bottom: 14px; } .timer-card { margin-right: 10px; margin-bottom: 10px; } .rest-message { top: 14px; left: 14px; } .coach-match-pill { max-width: 125px; font-size: 8px; } .player-title-row h3 { font-size: 18px; } .tutorial-panel, .player-action-panel { padding: 11px; } .set-entry-row { gap: 7px; } }
 
 .weekly-schedule { display: grid; gap: 15px; margin: 0 0 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 18px; }
 .weekly-schedule-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
