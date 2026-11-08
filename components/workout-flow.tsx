@@ -4,8 +4,9 @@ import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react'
 import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
-import { labelForExperience, type ExperienceLevel, type FitnessProfile, type GenderIdentity } from '@/lib/fitness-data'
+import { labelForExperience, type ExerciseVisualGender, type ExperienceLevel, type FitnessProfile } from '@/lib/fitness-data'
 import { ExerciseVideoSearch } from '@/components/exercise-video-search'
+import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 
 const TUTORIAL_SECONDS = 9
 const WORK_SECONDS = 40
@@ -34,10 +35,9 @@ function patchWorkoutSet(workout: ActiveWorkoutState, exerciseId: string, setId:
   }
 }
 
-function getTutor(gender: GenderIdentity) {
-  if (gender === 'man') return { name: 'Jordan', label: 'Your male coach', image: '/coaches/coach-man.png', alt: 'Jordan, your male FitPilot coach, in a bright training studio.' }
-  if (gender === 'woman') return { name: 'Maya', label: 'Your female coach', image: '/coaches/coach-woman.png', alt: 'Maya, your female FitPilot coach, in a bright training studio.' }
-  return { name: 'Alex', label: 'Your inclusive coach', image: '/coaches/coach-neutral.png', alt: 'Alex, your inclusive FitPilot coach, in a bright training studio.' }
+function getTutor(gender: ExerciseVisualGender) {
+  if (gender === 'male') return { name: 'Jordan', label: 'Male demo visuals', image: '/coaches/coach-man.png', alt: 'Jordan demonstrating exercise movements in a bright training studio.' }
+  return { name: 'Maya', label: 'Female demo visuals', image: '/coaches/coach-woman.png', alt: 'Maya demonstrating exercise movements in a bright training studio.' }
 }
 
 function formatTime(seconds: number) {
@@ -47,6 +47,8 @@ function formatTime(seconds: number) {
 
 export function WorkoutFlow({
   profile,
+  visualGender,
+  onVisualGenderChange,
   initialWeightKg,
   initialWorkout,
   onClose,
@@ -54,6 +56,8 @@ export function WorkoutFlow({
   onCompleted,
 }: {
   profile: FitnessProfile
+  visualGender: ExerciseVisualGender
+  onVisualGenderChange: (gender: ExerciseVisualGender) => void
   initialWeightKg: number
   initialWorkout: ActiveWorkoutState | null
   onClose: () => void
@@ -76,7 +80,7 @@ export function WorkoutFlow({
   const [tutorialCueIndex, setTutorialCueIndex] = useState(0)
   const timerSequence = useRef(0)
   const timerFinished = useRef<(() => void) | null>(null)
-  const tutor = getTutor(profile.gender)
+  const tutor = getTutor(visualGender)
   const currentExercise = position && workout ? workout.exercises[position.exerciseIndex] : null
   const currentSet = currentExercise && position ? currentExercise.workoutSets[position.setIndex] : null
   const allSets = workout?.exercises.flatMap((exercise) => exercise.workoutSets) ?? []
@@ -241,7 +245,7 @@ export function WorkoutFlow({
         <div className="session-progress-track"><span style={{ width: `${(completedCount / Math.max(allSets.length, 1)) * 100}%` }} /></div>
         {stage === 'all-done' && <div className="player-complete-state"><span className="finish-check"><Check size={24} /></span><p>Every set is logged. Take a breath, then save your session.</p><button type="button" className="primary-button dialog-primary" disabled={busy} onClick={finishSession}>{busy ? 'Saving session…' : 'Complete workout'} <ArrowRight size={17} /></button></div>}
         {currentExercise && currentSet && stage !== 'all-done' && <>
-          <div className="player-title-row"><div><p className="eyebrow">MOVEMENT {currentStepNumber} OF {totalSteps} <span className="player-dot" /> SET {currentSet.setNumber} OF {currentExercise.workoutSets.length}</p><h3>{currentExercise.name}</h3><p>{currentExercise.focus} · {currentExercise.equipment}</p></div><span className="coach-match-pill">{tutor.label}</span></div>
+          <div className="player-title-row"><div><p className="eyebrow">MOVEMENT {currentStepNumber} OF {totalSteps} <span className="player-dot" /> SET {currentSet.setNumber} OF {currentExercise.workoutSets.length}</p><h3>{currentExercise.name}</h3><p>{currentExercise.focus} · {currentExercise.equipment}</p></div><div className="player-media-controls"><ExerciseVisualGenderToggle gender={visualGender} onChange={onVisualGenderChange} compact /><span className="coach-match-pill">{tutor.label}</span></div></div>
           <div className={`trainer-screen ${stage === 'rest' ? 'trainer-screen-rest' : ''}`}>
             <Image src={tutor.image} alt={tutor.alt} width={960} height={720} className="trainer-photo" priority />
             <div className="trainer-scrim" />
@@ -258,7 +262,7 @@ export function WorkoutFlow({
             <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
               <span className="eyebrow">VISUAL GUIDE</span>
               <h4>Watch the movement</h4>
-              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} />
+              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} gender={visualGender} />
             </aside>
           </div>
           {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Tutorial complete. Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={playTutorial}><RotateCcw size={15} /> Replay tutorial</button></div>}

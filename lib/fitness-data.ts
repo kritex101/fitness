@@ -31,6 +31,7 @@ export type FitnessGoal = (typeof goals)[number]['value']
 export type ExperienceLevel = (typeof experienceLevels)[number]['value']
 export type TrainingEnvironment = (typeof trainingEnvironments)[number]['value']
 export type GenderIdentity = (typeof genderOptions)[number]['value']
+export type ExerciseVisualGender = 'male' | 'female'
 
 export type FitnessProfile = {
   userId: string

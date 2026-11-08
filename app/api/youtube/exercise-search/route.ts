@@ -5,8 +5,22 @@ import { auth } from '@/lib/auth'
 type YouTubeSearchResponse = {
   items?: Array<{
     id?: { videoId?: string }
-    snippet?: { title?: string; channelTitle?: string }
+    snippet?: {
+      title?: string
+      channelTitle?: string
+      thumbnails?: { medium?: { url?: string } }
+    }
   }>
+}
+
+function getSafeThumbnailUrl(url: string | undefined) {
+  if (!url) return null
+  try {
+    const parsedUrl = new URL(url)
+    return parsedUrl.protocol === 'https:' && parsedUrl.hostname === 'i.ytimg.com' ? parsedUrl.toString() : null
+  } catch {
+    return null
+  }
 }
 
 export async function GET(request: Request) {
@@ -15,9 +29,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Sign in to search for exercise videos.' }, { status: 401 })
   }
 
-  const exercise = new URL(request.url).searchParams.get('q')?.trim().replace(/\s+/g, ' ')
+  const searchParams = new URL(request.url).searchParams
+  const exercise = searchParams.get('q')?.trim().replace(/\s+/g, ' ')
+  const gender = searchParams.get('gender') ?? 'male'
   if (!exercise || exercise.length < 2 || exercise.length > 80) {
     return NextResponse.json({ error: 'Enter an exercise name between 2 and 80 characters.' }, { status: 400 })
+  }
+  if (gender !== 'male' && gender !== 'female') {
+    return NextResponse.json({ error: 'Choose male or female exercise visuals.' }, { status: 400 })
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY
@@ -28,7 +47,7 @@ export async function GET(request: Request) {
   const params = new URLSearchParams({
     key: apiKey,
     part: 'snippet',
-    q: `${exercise} exercise demonstration proper form`,
+    q: `${gender} ${exercise} exercise demonstration proper form`,
     type: 'video',
     maxResults: '5',
     safeSearch: 'strict',
@@ -50,7 +69,7 @@ export async function GET(request: Request) {
       const title = item.snippet?.title
       const channelTitle = item.snippet?.channelTitle
       if (!videoId || !/^[\w-]{11}$/.test(videoId) || !title || !channelTitle) return []
-      return [{ videoId, title, channelTitle }]
+      return [{ videoId, title, channelTitle, thumbnailUrl: getSafeThumbnailUrl(item.snippet?.thumbnails?.medium?.url) }]
     })
 
     return NextResponse.json({ videos }, { headers: { 'Cache-Control': 'private, no-store' } })

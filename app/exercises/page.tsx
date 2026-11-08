@@ -3,8 +3,11 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ArrowLeft, Dumbbell } from 'lucide-react'
+import { eq } from 'drizzle-orm'
 import { ExerciseLibrary } from '@/components/exercise-library'
 import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { fitnessProfiles } from '@/lib/db/schema'
 import { exerciseLibrary } from '@/lib/fitness-data'
 
 export const metadata: Metadata = {
@@ -15,6 +18,8 @@ export const metadata: Metadata = {
 export default async function ExerciseLibraryPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
+  const [profile] = await db.select({ gender: fitnessProfiles.gender }).from(fitnessProfiles).where(eq(fitnessProfiles.userId, session.user.id)).limit(1)
+  const initialVisualGender = profile?.gender === 'woman' ? 'female' : 'male'
 
   return (
     <main className="exercise-catalog-route">
@@ -31,7 +36,7 @@ export default async function ExerciseLibraryPage() {
         <span className="exercise-catalog-count"><Dumbbell size={16} aria-hidden="true" />{exerciseLibrary.length} exercises</span>
       </header>
       <section aria-label="Browse exercise demonstrations">
-        <ExerciseLibrary exercises={[]} initialCollection="all" />
+        <ExerciseLibrary exercises={[]} initialCollection="all" initialVisualGender={initialVisualGender} />
       </section>
     </main>
   )

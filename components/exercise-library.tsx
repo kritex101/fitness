@@ -2,15 +2,19 @@
 
 import { Search } from 'lucide-react'
 import { useState } from 'react'
-import { bodyAreas, exerciseLibrary, type BodyArea, type ExerciseCategory, type PlannedExercise } from '@/lib/fitness-data'
+import { bodyAreas, exerciseLibrary, type BodyArea, type ExerciseCategory, type ExerciseVisualGender, type PlannedExercise } from '@/lib/fitness-data'
 import { ExerciseVideoSearch } from '@/components/exercise-video-search'
+import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 
 type ExerciseCollection = 'plan' | 'all' | ExerciseCategory
 
-export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exercises: PlannedExercise[]; initialCollection?: ExerciseCollection }) {
+export function ExerciseLibrary({ exercises, visualGender: controlledVisualGender, onVisualGenderChange, initialVisualGender = 'male', initialCollection = 'plan' }: { exercises: PlannedExercise[]; visualGender?: ExerciseVisualGender; onVisualGenderChange?: (gender: ExerciseVisualGender) => void; initialVisualGender?: ExerciseVisualGender; initialCollection?: ExerciseCollection }) {
   const [selectedCollection, setSelectedCollection] = useState<ExerciseCollection>(initialCollection)
   const [selectedArea, setSelectedArea] = useState<BodyArea>('full-body')
   const [searchQuery, setSearchQuery] = useState('')
+  const [localVisualGender, setLocalVisualGender] = useState<ExerciseVisualGender>(initialVisualGender)
+  const visualGender = controlledVisualGender ?? localVisualGender
+  const changeVisualGender = onVisualGenderChange ?? setLocalVisualGender
   const plannedById = new Map(exercises.map((exercise) => [exercise.id, exercise]))
   const collectionExercises = selectedCollection === 'plan'
     ? exercises
@@ -48,7 +52,7 @@ export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exe
         })}
       </div>
       <label className="exercise-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search exercises by name, focus, or equipment</span><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search exercises, equipment, or focus" /></label>
-      <div className="library-results-heading"><div><p className="eyebrow">{selectedCollection === 'plan' ? selectedArea === 'full-body' ? 'YOUR COMPLETE SESSION' : 'TARGETED MOVEMENTS' : selectedArea === 'full-body' ? 'ACTIVITY COLLECTION' : 'TARGETED MOVEMENTS'}</p><h2>{selectedArea === 'full-body' ? collectionTitle : bodyAreas.find((area) => area.value === selectedArea)?.label}</h2></div><span className="coach-match-label">Search and preview exercise demonstrations</span></div>
+      <div className="library-results-heading"><div><p className="eyebrow">{selectedCollection === 'plan' ? selectedArea === 'full-body' ? 'YOUR COMPLETE SESSION' : 'TARGETED MOVEMENTS' : selectedArea === 'full-body' ? 'ACTIVITY COLLECTION' : 'TARGETED MOVEMENTS'}</p><h2>{selectedArea === 'full-body' ? collectionTitle : bodyAreas.find((area) => area.value === selectedArea)?.label}</h2></div><ExerciseVisualGenderToggle gender={visualGender} onChange={changeVisualGender} /></div>
       <div className="exercise-library">
         {visibleExercises.length === 0 && <p className="exercise-empty-state" role="status">No exercises match that search in this collection.</p>}
         {visibleExercises.map((exercise, index) => {
@@ -71,7 +75,7 @@ export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exe
                 </div>
                 <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
                   <span className="eyebrow">VIDEO DEMONSTRATION</span>
-                  <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} />
+                  <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} gender={visualGender} />
                 </aside>
               </div>
             </div>

@@ -176,10 +176,24 @@ h1, h2, h3, p { margin-top: 0; }
 .prescription { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
 .prescription > * { border-radius: 7px; background: var(--background); padding: 5px 8px; font-size: 9px; }
 .prescription strong { background: var(--primary); }
+.exercise-visual-gender-toggle { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.exercise-visual-gender-label { color: var(--muted-foreground); font-size: 10px; font-weight: 650; }
+.exercise-visual-gender-options { display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); padding: 3px; }
+.exercise-visual-gender-options button { border: 0; border-radius: 6px; background: transparent; padding: 5px 9px; color: var(--muted-foreground); font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; }
+.exercise-visual-gender-options button[aria-pressed="true"] { background: var(--primary); color: var(--foreground); }
+.exercise-visual-gender-options button:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
+.exercise-visual-gender-compact .exercise-visual-gender-label { display: none; }
 .video-tutorial-link { display: inline-flex; width: fit-content; align-items: center; gap: 7px; margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 8px 11px; color: var(--foreground); font: inherit; font-size: 10px; font-weight: 650; text-decoration: none; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
 .video-tutorial-link:hover { border-color: var(--primary); background: var(--subtle); }
 .video-tutorial-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .exercise-video-results { display: grid; max-width: 620px; gap: 10px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.exercise-video-search-form { display: grid; gap: 6px; }
+.exercise-video-search-form label { color: var(--muted-foreground); font-size: 10px; font-weight: 650; }
+.exercise-video-search-fields { display: flex; gap: 6px; }
+.exercise-video-search-fields input { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 8px; background: var(--background); padding: 8px 9px; color: var(--foreground); font: inherit; font-size: 11px; }
+.exercise-video-search-fields button { border: 1px solid var(--border); border-radius: 8px; background: var(--subtle); padding: 7px 11px; color: var(--foreground); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.exercise-video-search-fields button:disabled { opacity: .55; cursor: not-allowed; }
+.exercise-video-search-fields input:focus-visible, .exercise-video-search-fields button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .video-search-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
 .video-search-feedback a, .exercise-video-caption a { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .exercise-video-player { width: 100%; overflow: hidden; border-radius: 11px; background: var(--foreground); aspect-ratio: 16 / 9; }
@@ -190,7 +204,9 @@ h1, h2, h3, p { margin-top: 0; }
 .exercise-video-caption a { font-size: 10px; }
 .exercise-video-alternatives { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .exercise-video-alternatives li { border-top: 1px solid var(--border); padding: 8px 0; }
-.exercise-video-alternatives a { display: grid; gap: 3px; color: var(--foreground); font-size: 10px; text-decoration: none; }
+.exercise-video-alternatives a { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 9px; color: var(--foreground); font-size: 10px; text-decoration: none; }
+.exercise-video-thumbnail { display: block; width: 80px; height: 45px; border-radius: 6px; object-fit: cover; }
+.exercise-video-alt-copy { display: grid; min-width: 0; gap: 3px; }
 .exercise-video-alternatives a:hover span { text-decoration: underline; text-underline-offset: 3px; }
 .exercise-video-alternatives small { color: var(--muted-foreground); font-size: 9px; }
 .exercise-instructions { display: grid; gap: 5px; margin: 14px 0 0; padding-left: 17px; color: var(--muted-foreground); font-size: 10px; line-height: 1.55; }
@@ -374,7 +390,7 @@ h1, h2, h3, p { margin-top: 0; }
 .body-area-option small { color: var(--muted-foreground); font-size: 8px; line-height: 1.4; }
 .body-area-count { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: var(--background); font-size: 9px; font-weight: 750; }
 .body-area-selected { border-color: var(--foreground); background: var(--subtle); }
-.library-results-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.library-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .library-results-heading .eyebrow { margin-bottom: 4px; }
 .library-results-heading h2 { margin: 0; font-size: 21px; letter-spacing: -.045em; }
 .coach-match-label, .coach-match-pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 7px 10px; color: var(--muted-foreground); font-size: 9px; font-weight: 650; }
@@ -385,6 +401,7 @@ h1, h2, h3, p { margin-top: 0; }
 .player-title-row h3 { margin: 0; font-size: 21px; letter-spacing: -.045em; }
 .player-title-row > div > p:last-child { margin: 4px 0 0; color: var(--muted-foreground); font-size: 9px; }
 .player-dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--primary); vertical-align: middle; }
+.player-media-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
 .coach-match-pill { flex: 0 0 auto; }
 .trainer-screen { position: relative; display: flex; min-height: 300px; overflow: hidden; align-items: flex-end; border-radius: 16px; background: var(--foreground); color: var(--surface); isolation: isolate; }
 .trainer-photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: right center; animation: trainer-drift 18s ease-in-out infinite alternate; }
@@ -425,6 +442,7 @@ h1, h2, h3, p { margin-top: 0; }
 .player-complete-state p { max-width: 380px; margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; }
 @keyframes trainer-drift { from { transform: scale(1); } to { transform: scale(1.04); } }
 @media (max-width: 760px) { .library-exercise-detail, .workout-guidance-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 680px) { .player-title-row { align-items: flex-start; flex-direction: column; } .player-media-controls { width: 100%; justify-content: space-between; } }
 @media (max-width: 860px) { .exercise-catalog-route { padding-right: 26px; padding-left: 26px; } .body-area-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .exercise-catalog-route { padding: 20px 14px 30px; } .exercise-catalog-header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 21px 0; } .exercise-catalog-header h1 { font-size: 29px; } .body-area-picker { gap: 7px; } .body-area-option { min-height: 66px; padding: 9px; } .body-area-option small { font-size: 8px; } .library-results-heading { align-items: flex-start; flex-direction: column; } .trainer-screen { min-height: 240px; } .trainer-badge { margin-left: 14px; margin-bottom: 14px; } .timer-card { margin-right: 10px; margin-bottom: 10px; } .rest-message { top: 14px; left: 14px; } .coach-match-pill { max-width: 125px; font-size: 8px; } .player-title-row h3 { font-size: 18px; } .tutorial-panel, .player-action-panel { padding: 11px; } .set-entry-row { gap: 7px; } }
 
