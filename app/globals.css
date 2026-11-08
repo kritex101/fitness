@@ -157,9 +157,17 @@ h1, h2, h3, p { margin-top: 0; }
 .exercise-catalog-header h1 { margin: 0; font-size: clamp(29px, 4vw, 40px); font-weight: 720; letter-spacing: -.055em; line-height: 1.1; text-wrap: balance; }
 .exercise-catalog-header p:last-child { max-width: 640px; margin: 8px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .exercise-catalog-count { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 9px 11px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.exercise-library { display: grid; gap: 13px; }
+.exercise-library { display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; }
 .library-card { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
 .library-copy { padding: 19px 21px; }
+.library-exercise-detail { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); align-items: start; gap: 18px; margin-top: 13px; }
+.library-instructions-panel, .library-video-panel { min-width: 0; }
+.library-instructions-panel .exercise-instructions { margin-top: 0; }
+.library-video-panel { border: 1px solid var(--border); border-radius: 12px; background: var(--background); padding: 12px; }
+.library-video-panel > .eyebrow { margin: 0; }
+.library-video-panel .video-tutorial-link { margin-top: 8px; }
+.library-video-panel .exercise-video-results { max-width: none; margin-top: 10px; }
+.library-video-panel .exercise-video-player { max-width: 560px; }
 .library-card-top { display: flex; align-items: center; justify-content: space-between; }
 .library-number { color: var(--muted-foreground); font-size: 9px; font-weight: 750; letter-spacing: .12em; }
 .exercise-focus { display: inline-flex; border-radius: 7px; background: var(--subtle); padding: 4px 7px; color: var(--foreground); font-size: 9px; font-weight: 650; }
@@ -391,7 +399,14 @@ h1, h2, h3, p { margin-top: 0; }
 .rest-message { position: absolute; top: 21px; left: 20px; display: grid; gap: 8px; }
 .rest-message strong { font-size: clamp(19px, 3vw, 29px); line-height: 1.1; letter-spacing: -.05em; }
 .trainer-screen-rest .trainer-photo { filter: saturate(.72); }
+.workout-guidance-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, .85fr); gap: 12px; margin-top: 13px; }
 .tutorial-panel, .player-action-panel { margin-top: 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px; }
+.workout-guidance-layout .tutorial-panel, .workout-video-panel { min-width: 0; margin: 0; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px; }
+.workout-video-panel > .eyebrow { display: block; margin-bottom: 3px; }
+.workout-video-panel h4 { margin: 0; font-size: 13px; }
+.workout-video-panel .video-tutorial-link { margin-top: 12px; }
+.workout-video-panel .exercise-video-results { max-width: none; }
+
 .tutorial-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tutorial-heading .eyebrow { margin-bottom: 3px; }
 .tutorial-heading h4 { margin: 0; font-size: 13px; }
@@ -409,6 +424,7 @@ h1, h2, h3, p { margin-top: 0; }
 .player-complete-state { display: grid; justify-items: center; gap: 10px; padding: 24px 0 8px; text-align: center; }
 .player-complete-state p { max-width: 380px; margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; }
 @keyframes trainer-drift { from { transform: scale(1); } to { transform: scale(1.04); } }
+@media (max-width: 760px) { .library-exercise-detail, .workout-guidance-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 860px) { .exercise-catalog-route { padding-right: 26px; padding-left: 26px; } .body-area-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .exercise-catalog-route { padding: 20px 14px 30px; } .exercise-catalog-header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 21px 0; } .exercise-catalog-header h1 { font-size: 29px; } .body-area-picker { gap: 7px; } .body-area-option { min-height: 66px; padding: 9px; } .body-area-option small { font-size: 8px; } .library-results-heading { align-items: flex-start; flex-direction: column; } .trainer-screen { min-height: 240px; } .trainer-badge { margin-left: 14px; margin-bottom: 14px; } .timer-card { margin-right: 10px; margin-bottom: 10px; } .rest-message { top: 14px; left: 14px; } .coach-match-pill { max-width: 125px; font-size: 8px; } .player-title-row h3 { font-size: 18px; } .tutorial-panel, .player-action-panel { padding: 11px; } .set-entry-row { gap: 7px; } }
 

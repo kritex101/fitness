@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react'
 import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
 import { labelForExperience, type ExperienceLevel, type FitnessProfile, type GenderIdentity } from '@/lib/fitness-data'
+import { ExerciseVideoSearch } from '@/components/exercise-video-search'
 
 const TUTORIAL_SECONDS = 9
 const WORK_SECONDS = 40
@@ -248,11 +249,18 @@ export function WorkoutFlow({
             {timer && <div className="timer-card"><span>{timerLabel}</span><strong aria-label={`${timer.seconds} seconds remaining`} aria-live="off">{formatTime(timer.seconds)}</strong><button type="button" aria-label={timer.paused ? 'Resume timer' : 'Pause timer'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={16} /> : <Pause size={16} />}</button></div>}
             {stage === 'rest' && <div className="rest-message"><span>RECOVER AT YOUR PACE</span><strong>Slow breath in.<br />Long breath out.</strong></div>}
           </div>
-          {stage === 'tutorial' && <section className="tutorial-panel" aria-label={`${currentExercise.name} tutorial`}>
-            <div className="tutorial-heading"><div><span className="eyebrow">BEFORE YOU MOVE</span><h4>Watch the form cues</h4></div><span className="tutorial-length">{TUTORIAL_SECONDS}s preview</span></div>
-            <ol className="tutorial-cues">{currentExercise.instructions.map((instruction, index) => <li className={tutorialCueIndex === index && timer?.kind === 'tutorial' ? 'tutorial-cue-active' : ''} key={instruction}><span>{String(index + 1).padStart(2, '0')}</span><p>{instruction}</p></li>)}</ol>
-            {timer?.kind === 'tutorial' ? <p className="tutorial-status" role="status">{timer.paused ? 'Tutorial paused' : `Showing cue ${tutorialCueIndex + 1} of ${currentExercise.instructions.length}`}</p> : <button type="button" className="primary-button dialog-primary" onClick={playTutorial}><Play size={15} fill="currentColor" /> Play tutorial</button>}
-          </section>}
+          <div className="workout-guidance-layout">
+            <section className="tutorial-panel" aria-label={`${currentExercise.name} instructions`}>
+              <div className="tutorial-heading"><div><span className="eyebrow">EXERCISE INSTRUCTIONS</span><h4>Follow these form cues</h4></div>{stage === 'tutorial' && <span className="tutorial-length">{TUTORIAL_SECONDS}s preview</span>}</div>
+              <ol className="tutorial-cues">{currentExercise.instructions.map((instruction, index) => <li className={tutorialCueIndex === index && timer?.kind === 'tutorial' ? 'tutorial-cue-active' : ''} key={instruction}><span>{String(index + 1).padStart(2, '0')}</span><p>{instruction}</p></li>)}</ol>
+              {stage === 'tutorial' && (timer?.kind === 'tutorial' ? <p className="tutorial-status" role="status">{timer.paused ? 'Tutorial paused' : `Showing cue ${tutorialCueIndex + 1} of ${currentExercise.instructions.length}`}</p> : <button type="button" className="primary-button dialog-primary" onClick={playTutorial}><Play size={15} fill="currentColor" /> Play tutorial</button>)}
+            </section>
+            <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
+              <span className="eyebrow">VISUAL GUIDE</span>
+              <h4>Watch the movement</h4>
+              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} />
+            </aside>
+          </div>
           {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Tutorial complete. Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={playTutorial}><RotateCcw size={15} /> Replay tutorial</button></div>}
           {stage === 'active' && <div className="player-action-panel">
             <div className="set-entry-row"><label className="field"><span>Reps completed</span><input type="number" min={1} max={100} value={currentSet.repsCompleted ?? currentSet.targetReps} onChange={(event) => updateCurrentSet({ repsCompleted: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="field"><span>Load <b>kg</b></span><input type="number" min={0} max={500} step="0.5" placeholder="Optional" value={currentSet.weightKg ?? ''} onChange={(event) => updateCurrentSet({ weightKg: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>

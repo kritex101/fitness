@@ -63,10 +63,17 @@ export function ExerciseLibrary({ exercises, initialCollection = 'plan' }: { exe
               <h3>{exercise.name}</h3>
               <p className="exercise-equipment">{exercise.equipment}</p>
               <div className="prescription">{exercise.duration ? <><strong>Suggested</strong><span>{exercise.duration}</span><span>comfortable pace</span></> : <><strong>{sets} sets</strong><span>{repMin}–{repMax} reps</span><span>{restSeconds}s rest</span></>}</div>
-              <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} />
-              <ol className="exercise-instructions">{exercise.instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}</ol>
-              <p className="coaching-tip"><strong>Coach&apos;s cue</strong> {exercise.coachingTip}</p>
-              {exercise.homeOption && <p className="home-option">{exercise.homeOption}</p>}
+              <div className="library-exercise-detail">
+                <div className="library-instructions-panel">
+                  <ol className="exercise-instructions">{exercise.instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}</ol>
+                  <p className="coaching-tip"><strong>Coach&apos;s cue</strong> {exercise.coachingTip}</p>
+                  {exercise.homeOption && <p className="home-option">{exercise.homeOption}</p>}
+                </div>
+                <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
+                  <span className="eyebrow">VIDEO DEMONSTRATION</span>
+                  <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} />
+                </aside>
+              </div>
             </div>
           </article>
         })}
