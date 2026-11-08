@@ -1,0 +1,69 @@
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { and, asc, desc, eq } from 'drizzle-orm'
+import { FitnessOnboarding } from '@/components/fitness-onboarding'
+import { FitPilotDashboard } from '@/components/fitpilot-dashboard'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { fitnessCheckins, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { buildWorkoutPlan, type FitnessProfile, type GenderIdentity, type FitnessGoal, type ExperienceLevel, type TrainingEnvironment } from '@/lib/fitness-data'
+
+export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+
+  const userId = session.user.id
+  const [profileRow] = await db.select().from(fitnessProfiles).where(eq(fitnessProfiles.userId, userId)).limit(1)
+  if (!profileRow) return <FitnessOnboarding initialName={session.user.name ?? ''} />
+
+  const profile: FitnessProfile = {
+    userId,
+    name: profileRow.name,
+    age: profileRow.age,
+    gender: profileRow.gender as GenderIdentity,
+    weightKg: Number(profileRow.weightKg),
+    heightCm: Number(profileRow.heightCm),
+    goal: profileRow.goal as FitnessGoal,
+    experience: profileRow.experience as ExperienceLevel,
+    environment: profileRow.environment as TrainingEnvironment,
+  }
+
+  const [checkinRows, sessionRows, activeRow] = await Promise.all([
+    db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)).limit(12),
+    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)).limit(12),
+    db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress'))).orderBy(desc(workoutSessions.startedAt)).limit(1),
+  ])
+
+  let activeWorkout = null
+  if (activeRow[0]) {
+    const activeSession = activeRow[0]
+    const savedSets = await db.select().from(workoutSets)
+      .where(and(eq(workoutSets.sessionId, activeSession.id), eq(workoutSets.userId, userId)))
+      .orderBy(asc(workoutSets.setNumber))
+    const plan = buildWorkoutPlan(profile)
+    activeWorkout = {
+      id: activeSession.id,
+      sessionName: activeSession.sessionName,
+      startedAt: activeSession.startedAt.toISOString(),
+      exercises: plan.map((exercise) => ({
+        ...exercise,
+        workoutSets: savedSets.filter((set) => set.exerciseId === exercise.id).map((set) => ({
+          id: set.id,
+          setNumber: set.setNumber,
+          targetReps: set.targetReps,
+          repsCompleted: set.actualReps,
+          weightKg: set.weightKg === null ? null : Number(set.weightKg),
+          completed: set.completed,
+        })),
+      })),
+    }
+  }
+
+  return <FitPilotDashboard
+    profile={profile}
+    checkins={checkinRows.map((row) => ({ id: row.id, weightKg: Number(row.weightKg), reflection: row.reflection, createdAt: row.createdAt.toISOString() }))}
+    sessions={sessionRows.map((row) => ({ id: row.id, sessionName: row.sessionName, status: row.status, startedAt: row.startedAt.toISOString(), endedAt: row.endedAt?.toISOString() ?? null }))}
+    activeWorkout={activeWorkout}
+    email={session.user.email}
+  />
+}

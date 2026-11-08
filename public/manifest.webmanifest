@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "FitPilot — Training, on your terms",
+  "short_name": "FitPilot",
+  "description": "A focused training companion for your next best workout.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#F4F7F3",
+  "theme_color": "#17251F",
+  "categories": ["health", "fitness"],
+  "icons": [
+    {
+      "src": "/icons/fitpilot-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/fitpilot-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
