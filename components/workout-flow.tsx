@@ -13,7 +13,7 @@ const WORK_SECONDS = 40
 
 type PlayerStage = 'checkin' | 'tutorial' | 'ready' | 'active' | 'rest' | 'all-done' | 'finished'
 type TimerKind = 'tutorial' | 'work' | 'rest'
-type TimerState = { id: number; kind: TimerKind; seconds: number; paused: boolean }
+type TimerState = { id: number; kind: TimerKind; seconds: number; paused: boolean; endsAt: number }
 type SetPosition = { exerciseIndex: number; setIndex: number }
 
 function getNextSetPosition(workout: ActiveWorkoutState | null): SetPosition | null {
@@ -121,9 +121,11 @@ export function WorkoutFlow({
     const intervalId = window.setInterval(() => {
       setTimer((current) => {
         if (!current || current.id !== timerId) return current
-        return current.seconds <= 1 ? null : { ...current, seconds: current.seconds - 1 }
+        const seconds = Math.max(0, Math.ceil((current.endsAt - Date.now()) / 1000))
+        if (seconds === 0) return null
+        return seconds === current.seconds ? current : { ...current, seconds }
       })
-    }, 1000)
+    }, 200)
     return () => window.clearInterval(intervalId)
   }, [timerId, timerPaused])
 
@@ -165,7 +167,17 @@ export function WorkoutFlow({
   function startTimer(kind: TimerKind, seconds: number, onFinish: () => void) {
     timerSequence.current += 1
     timerFinished.current = onFinish
-    setTimer({ id: timerSequence.current, kind, seconds, paused: false })
+    setTimer({ id: timerSequence.current, kind, seconds, paused: false, endsAt: Date.now() + seconds * 1000 })
+  }
+
+  function toggleTimer() {
+    setTimer((current) => {
+      if (!current) return current
+      if (current.paused) return { ...current, paused: false, endsAt: Date.now() + current.seconds * 1000 }
+      const seconds = Math.max(0, Math.ceil((current.endsAt - Date.now()) / 1000))
+      if (seconds === 0) return null
+      return { ...current, seconds, paused: true, endsAt: Date.now() + seconds * 1000 }
+    })
   }
 
   function cancelTimer() {
@@ -291,7 +303,7 @@ export function WorkoutFlow({
             <Image src={tutor.image} alt={tutor.alt} width={960} height={720} className="trainer-photo" priority />
             <div className="trainer-scrim" />
             <div className="trainer-badge"><span>YOUR FITPILOT COACH</span><strong>{tutor.name}</strong></div>
-            {timer && <div className={`timer-card ${timer.kind === 'work' ? 'timer-card-work' : ''}`}><span>{timerLabel}</span><strong aria-label={`${timer.seconds} seconds remaining`} aria-live="off">{formatTime(timer.seconds)}</strong>{timer.kind !== 'work' && <button type="button" aria-label={timer.paused ? 'Resume timer' : 'Pause timer'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={16} /> : <Pause size={16} />}</button>}</div>}
+            {timer && <div className={`timer-card ${timer.kind === 'work' ? 'timer-card-work' : ''}`}><span>{timerLabel}</span><strong aria-label={`${timer.seconds} seconds remaining`} aria-live="off">{formatTime(timer.seconds)}</strong>{timer.kind !== 'work' && <button type="button" aria-label={timer.paused ? 'Resume timer' : 'Pause timer'} onClick={toggleTimer}>{timer.paused ? <Play size={16} /> : <Pause size={16} />}</button>}</div>}
             {stage === 'rest' && <div className="rest-message"><span>RECOVER AT YOUR PACE</span><strong>Slow breath in.<br />Long breath out.</strong></div>}
           </div>
           <div className="workout-guidance-layout">
@@ -308,7 +320,7 @@ export function WorkoutFlow({
           </div>
           {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Tutorial complete. Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={playTutorial}><RotateCcw size={15} /> Replay tutorial</button></div>}
           {stage === 'active' && <div className="player-action-panel">
-            {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" aria-label={timer.paused ? 'Resume work interval' : 'Pause work interval'} onClick={() => setTimer((current) => current ? { ...current, paused: !current.paused } : current)}>{timer.paused ? <Play size={15} /> : <Pause size={15} />}{timer.paused ? 'Resume interval' : 'Pause interval'}</button>}
+            {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" aria-label={timer.paused ? 'Resume work interval' : 'Pause work interval'} onClick={toggleTimer}>{timer.paused ? <Play size={15} /> : <Pause size={15} />}{timer.paused ? 'Resume interval' : 'Pause interval'}</button>}
             <div className="set-entry-row"><label className="field"><span>Reps completed</span><input type="number" min={1} max={100} value={currentSet.repsCompleted ?? currentSet.targetReps} onChange={(event) => updateCurrentSet({ repsCompleted: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="field"><span>Load <b>kg</b></span><input type="number" min={0} max={500} step="0.5" placeholder="Optional" value={currentSet.weightKg ?? ''} onChange={(event) => updateCurrentSet({ weightKg: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>
             {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" onClick={finishIntervalEarly}><SkipForward size={15} /> Finish interval early</button>}
             {!timer && <p className="form-note" role="status">Interval complete. Record your set, then take your recovery break.</p>}
