@@ -88,6 +88,30 @@ export async function saveOnboarding(input: OnboardingInput) {
   return { success: true }
 }
 
+export async function updateFitnessPlan(input: { goal: FitnessGoal; experience: ExperienceLevel; environment: TrainingEnvironment }) {
+  const userId = await getUserId()
+  if (!input || typeof input !== 'object') throw new Error('Choose your plan preferences before saving.')
+  if (!goals.some((option) => option.value === input.goal)) throw new Error('Choose a valid training goal.')
+  if (!experienceLevels.some((option) => option.value === input.experience)) throw new Error('Choose a valid experience level.')
+  if (!trainingEnvironments.some((option) => option.value === input.environment)) throw new Error('Choose a valid training environment.')
+
+  const [activeWorkout] = await db.select({ id: workoutSessions.id }).from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress')))
+    .limit(1)
+  if (activeWorkout) throw new Error('Finish your active workout before changing plans.')
+
+  const [updatedProfile] = await db.update(fitnessProfiles).set({
+    goal: input.goal,
+    experience: input.experience,
+    environment: input.environment,
+    updatedAt: new Date(),
+  }).where(eq(fitnessProfiles.userId, userId)).returning({ userId: fitnessProfiles.userId })
+  if (!updatedProfile) throw new Error('Your profile could not be found. Refresh the page and try again.')
+
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function startWorkout(input: { weightKg: number; reflection: string }): Promise<ActiveWorkoutState> {
   const userId = await getUserId()
   if (!input || typeof input !== 'object') throw new Error('Invalid check-in details.')

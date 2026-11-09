@@ -9,11 +9,10 @@ import { ExerciseVideoSearch } from '@/components/exercise-video-search'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 import { useVoiceCoach } from '@/lib/use-voice-coach'
 
-const TUTORIAL_SECONDS = 9
 const WORK_SECONDS = 40
 
 type PlayerStage = 'checkin' | 'tutorial' | 'ready' | 'active' | 'rest' | 'all-done' | 'finished'
-type TimerKind = 'tutorial' | 'work' | 'rest'
+type TimerKind = 'work' | 'rest'
 type TimerState = { id: number; kind: TimerKind; seconds: number; paused: boolean; endsAt: number }
 type SetPosition = { exerciseIndex: number; setIndex: number }
 
@@ -78,7 +77,7 @@ export function WorkoutFlow({
   const [timer, setTimer] = useState<TimerState | null>(null)
   const [afterRestStage, setAfterRestStage] = useState<PlayerStage>('ready')
   const [workIntervalFinished, setWorkIntervalFinished] = useState(false)
-  const [tutorialCueIndex, setTutorialCueIndex] = useState(0)
+  const [tutorialHasPlayed, setTutorialHasPlayed] = useState(false)
   const timerSequence = useRef(0)
   const timerFinished = useRef<(() => void) | null>(null)
   const tutor = getTutor(visualGender)
@@ -88,20 +87,7 @@ export function WorkoutFlow({
   const completedCount = allSets.filter((set) => set.completed).length
   const timerId = timer?.id
   const timerPaused = timer?.paused
-  const voiceStepKey = currentExercise && currentSet ? `${currentExercise.id}:${currentSet.id}` : ''
-  const lastVoiceStep = useRef(voiceStepKey)
-  const preservedStepSpeech = useRef('')
-  const lastSpokenTimerCue = useRef('')
   const { enabled: voiceCoachEnabled, supported: voiceCoachSupported, toggle: toggleVoiceCoach, speakText, stop: stopVoiceCoach } = useVoiceCoach({ gender: visualGender })
-  useEffect(() => {
-    if (lastVoiceStep.current === voiceStepKey) return
-    lastVoiceStep.current = voiceStepKey
-    if (preservedStepSpeech.current === voiceStepKey) {
-      preservedStepSpeech.current = ''
-      return
-    }
-    stopVoiceCoach()
-  }, [stopVoiceCoach, voiceStepKey])
 
   const closePlayer = useCallback(() => {
     stopVoiceCoach()
@@ -136,20 +122,6 @@ export function WorkoutFlow({
     timerFinished.current = null
     onFinish()
   }, [timer])
-
-  useEffect(() => {
-    if (timer?.kind !== 'work' || timer.paused || timer.seconds > 5 || timer.seconds < 1) return
-    const cueKey = `${timer.id}:${timer.seconds}`
-    if (lastSpokenTimerCue.current === cueKey) return
-    lastSpokenTimerCue.current = cueKey
-    speakText(String(timer.seconds))
-  }, [speakText, timer?.id, timer?.kind, timer?.paused, timer?.seconds])
-
-  useEffect(() => {
-    if (timer?.kind !== 'tutorial' || !currentExercise) return
-    const elapsed = TUTORIAL_SECONDS - timer.seconds
-    setTutorialCueIndex(Math.min(currentExercise.instructions.length - 1, Math.floor(elapsed / 3)))
-  }, [currentExercise, timer])
 
   function startTimer(kind: TimerKind, seconds: number, onFinish: () => void) {
     timerSequence.current += 1
@@ -197,29 +169,20 @@ export function WorkoutFlow({
 
   function playTutorial() {
     if (!currentExercise) return
-    const tutorialText = currentExercise.instructions
-      .map((instruction, index) => `Step ${index + 1}: ${instruction}`)
-      .join(' ')
-    speakText(tutorialText)
-    setStage('tutorial')
-    setTutorialCueIndex(0)
-    startTimer('tutorial', TUTORIAL_SECONDS, () => setStage('ready'))
+    speakText(currentExercise.instructions.join(' '))
+    setTutorialHasPlayed(true)
   }
 
   function beginInterval() {
+    stopVoiceCoach()
     setStage('active')
     setWorkIntervalFinished(false)
-    startTimer('work', WORK_SECONDS, () => {
-      setWorkIntervalFinished(true)
-      speakText('Time!')
-    })
-    speakText('Okay, starting the timer. 5, 4, 3, 2, 1, Go!')
+    startTimer('work', WORK_SECONDS, () => setWorkIntervalFinished(true))
   }
 
   function finishIntervalEarly() {
     cancelTimer()
     setWorkIntervalFinished(true)
-    speakText('Interval finished. Save your set to enter the rest period.')
   }
 
   function skipRest() {
@@ -244,7 +207,6 @@ export function WorkoutFlow({
     const updatedWorkout = patchWorkoutSet(workout, currentExercise.id, currentSet.id, { completed: true, repsCompleted })
     const nextPosition = getNextSetPosition(updatedWorkout)
     const nextExercise = nextPosition ? updatedWorkout.exercises[nextPosition.exerciseIndex] : null
-    if (nextExercise) speakText(`Rest time. Up next is ${nextExercise.name}.`)
 
     setBusySetId(currentSet.id)
     setError('')
@@ -259,8 +221,7 @@ export function WorkoutFlow({
       }
       const nextMovement = nextPosition.exerciseIndex !== position?.exerciseIndex
       const restStage: PlayerStage = nextMovement ? 'tutorial' : 'ready'
-      const nextSet = nextExercise.workoutSets[nextPosition.setIndex]
-      preservedStepSpeech.current = `${nextExercise.id}:${nextSet.id}`
+      if (nextMovement) setTutorialHasPlayed(false)
       setPosition(nextPosition)
       setAfterRestStage(restStage)
       setStage('rest')
@@ -294,7 +255,7 @@ export function WorkoutFlow({
     }
   }
 
-  const timerLabel = timer?.kind === 'tutorial' ? 'Tutorial preview' : timer?.kind === 'work' ? 'Movement interval' : timer?.kind === 'rest' ? 'Rest interval' : ''
+  const timerLabel = timer?.kind === 'work' ? 'Movement interval' : timer?.kind === 'rest' ? 'Rest interval' : ''
   const currentStepNumber = position ? position.exerciseIndex + 1 : 0
   const totalSteps = workout?.exercises.length ?? 0
 
@@ -324,9 +285,9 @@ export function WorkoutFlow({
           </div>
           <div className="workout-guidance-layout">
             <section className="tutorial-panel" aria-label={`${currentExercise.name} instructions`}>
-              <div className="tutorial-heading"><div><span className="eyebrow">EXERCISE INSTRUCTIONS</span><h4>Follow these form cues</h4></div>{stage === 'tutorial' && <span className="tutorial-length">{TUTORIAL_SECONDS}s preview</span>}</div>
-              <ol className="tutorial-cues">{currentExercise.instructions.map((instruction, index) => <li className={tutorialCueIndex === index && timer?.kind === 'tutorial' ? 'tutorial-cue-active' : ''} key={instruction}><span>{String(index + 1).padStart(2, '0')}</span><p>{instruction}</p></li>)}</ol>
-              {stage === 'tutorial' && (timer?.kind === 'tutorial' ? <p className="tutorial-status" role="status">{timer.paused ? 'Tutorial paused' : `Showing cue ${tutorialCueIndex + 1} of ${currentExercise.instructions.length}`}</p> : <button type="button" className="primary-button dialog-primary" onClick={playTutorial}><Play size={15} fill="currentColor" /> Play tutorial</button>)}
+              <div className="tutorial-heading"><div><span className="eyebrow">EXERCISE INSTRUCTIONS</span><h4>Follow these form cues</h4></div></div>
+              <ol className="tutorial-cues">{currentExercise.instructions.map((instruction, index) => <li key={instruction}><span>{String(index + 1).padStart(2, '0')}</span><p>{instruction}</p></li>)}</ol>
+              {stage === 'tutorial' && <><p className="tutorial-status" role="status">{tutorialHasPlayed ? 'Procedures read. Continue when you are ready.' : 'Review the procedures, then continue when you are ready.'}</p><button type="button" className="primary-button dialog-primary" onClick={playTutorial}><Play size={15} fill="currentColor" /> {tutorialHasPlayed ? 'Replay spoken procedures' : 'Hear spoken procedures'}</button></>}
             </section>
             <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
               <span className="eyebrow">VISUAL GUIDE</span>
@@ -334,7 +295,8 @@ export function WorkoutFlow({
               <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} gender={visualGender} autoLoad />
             </aside>
           </div>
-          {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Tutorial complete. Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={playTutorial}><RotateCcw size={15} /> Replay tutorial</button></div>}
+          {stage === 'tutorial' && <div className="player-action-panel"><p className="dialog-lede">The coach will read only the movement procedures. This session waits here until you choose to continue.</p><button type="button" className="primary-button dialog-primary" onClick={() => setStage('ready')}>Continue when ready <ArrowRight size={16} /></button></div>}
+          {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={() => { setStage('tutorial'); playTutorial() }}><RotateCcw size={15} /> Review procedures</button></div>}
           {stage === 'active' && <div className="player-action-panel">
             {timer?.kind === 'work' && <button type="button" className="secondary-button dialog-secondary" aria-label={timer.paused ? 'Resume work interval' : 'Pause work interval'} onClick={toggleTimer}>{timer.paused ? <Play size={15} /> : <Pause size={15} />}{timer.paused ? 'Resume interval' : 'Pause interval'}</button>}
             <div className="set-entry-row"><label className="field"><span>Reps completed</span><input type="number" min={1} max={100} value={currentSet.repsCompleted ?? currentSet.targetReps} onChange={(event) => updateCurrentSet({ repsCompleted: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="field"><span>Load <b>kg</b></span><input type="number" min={0} max={500} step="0.5" placeholder="Optional" value={currentSet.weightKg ?? ''} onChange={(event) => updateCurrentSet({ weightKg: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>

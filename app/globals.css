@@ -255,6 +255,37 @@ h1, h2, h3, p { margin-top: 0; }
 .plan-summary, .guidance-panel { padding: 22px; }
 .plan-summary h2, .guidance-panel h2 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.045em; }
 .plan-summary > p { max-width: 520px; margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.65; }
+.plan-summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.plan-summary-heading .eyebrow { margin: 0; }
+.plan-edit-button { min-height: 32px; gap: 6px; padding: 0 9px; font-size: 10px; }
+.profile-page { display: grid; gap: 14px; }
+.profile-page .section-heading { margin-bottom: 2px; }
+.profile-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; }
+.profile-identity-card, .profile-highlights { padding: 20px; }
+.profile-identity-header { display: flex; align-items: center; gap: 13px; }
+.profile-avatar { display: grid; width: 52px; height: 52px; flex: 0 0 auto; place-items: center; border-radius: 17px; background: var(--primary); font-size: 16px; font-weight: 800; }
+.profile-identity-header .eyebrow { margin-bottom: 4px; }
+.profile-identity-header h2 { margin: 0; font-size: 20px; letter-spacing: -.04em; }
+.profile-identity-header p { overflow: hidden; max-width: 260px; margin: 2px 0 0; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin-top: 22px; border-top: 1px solid var(--border); padding-top: 16px; }
+.profile-detail-grid div { display: grid; min-width: 0; gap: 4px; }
+.profile-detail-grid span, .profile-stat span { color: var(--muted-foreground); font-size: 10px; }
+.profile-detail-grid strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.profile-stat { display: grid; min-width: 0; align-content: start; gap: 5px; border-radius: 11px; background: var(--background); padding: 11px; }
+.profile-stat strong { font-size: 19px; letter-spacing: -.04em; }
+.profile-stat small { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
+.profile-plan-current { display: flex; align-items: center; gap: 9px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.profile-plan-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: 9px; background: var(--subtle); }
+.profile-plan-current p { display: grid; min-width: 0; gap: 1px; margin: 0; }
+.profile-plan-current strong { font-size: 10px; }
+.profile-plan-current p span { color: var(--muted-foreground); font-size: 9px; }
+.profile-plan-current > svg { margin-left: auto; color: var(--muted-foreground); }
+.profile-plan-note { margin: -8px 0 0; color: var(--muted-foreground); font-size: 10px; }
+.plan-editor-dialog { width: min(100%, 520px); }
+.plan-editor-form { display: grid; gap: 14px; padding-top: 17px; }
+.plan-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; margin-top: 3px; border-top: 1px solid var(--border); padding-top: 14px; }
+.plan-editor-actions .primary-button { min-width: 145px; }
 .plan-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
 .plan-tags span { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; background: var(--subtle); padding: 7px 9px; font-size: 9px; font-weight: 650; }
 .plan-measurements { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 22px; border-top: 1px solid var(--border); padding-top: 15px; }
@@ -373,9 +404,9 @@ h1, h2, h3, p { margin-top: 0; }
 
 @media (min-width: 1500px) { .dashboard-content { padding-right: 52px; padding-left: 52px; } }
 @media (max-width: 1120px) { .sidebar { width: 218px; } .main-area { margin-left: 218px; } .topbar { padding-right: 26px; padding-left: 26px; } .dashboard-content { padding-right: 26px; padding-left: 26px; } .hero-card { padding-right: 27px; padding-left: 27px; } .overview-grid { gap: 11px; } .panel { padding: 16px; } .progress-layout { grid-template-columns: minmax(0, 1.35fr) minmax(230px, .8fr); } }
-@media (max-width: 860px) { .sidebar { width: 202px; } .main-area { margin-left: 202px; } .topbar { padding-right: 18px; padding-left: 18px; } .dashboard-content { padding: 25px 18px 17px; } .hero-card { min-height: 250px; padding: 24px; } .hero-copy { width: 100%; } .overview-grid { grid-template-columns: 1fr 1fr; } .progress-layout { grid-template-columns: 1fr; } .progress-stat-row { gap: 9px; } .plan-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .sidebar { width: 202px; } .main-area { margin-left: 202px; } .topbar { padding-right: 18px; padding-left: 18px; } .dashboard-content { padding: 25px 18px 17px; } .hero-card { min-height: 250px; padding: 24px; } .hero-copy { width: 100%; } .overview-grid { grid-template-columns: 1fr 1fr; } .progress-layout { grid-template-columns: 1fr; } .progress-stat-row { gap: 9px; } .plan-grid { grid-template-columns: 1fr; } .profile-overview-grid { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .sidebar { width: min(290px, 84vw); transform: translateX(-102%); transition: transform .22s ease; box-shadow: 14px 0 42px color-mix(in srgb, var(--foreground) 12%, transparent); } .sidebar-open { transform: translateX(0); } .main-area { margin-left: 0; } .topbar { height: 58px; justify-content: flex-start; gap: 11px; padding: 0 15px; } .mobile-menu-button { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; } .breadcrumb { font-size: 10px; } .topbar-actions { gap: 8px; margin-left: auto; } .today-date { display: none; } .help-button { width: 32px; height: 32px; } .install-button { width: 34px; min-height: 32px; overflow: hidden; padding: 0; font-size: 0; } .install-button svg { width: 15px; } .dashboard-content { padding: 22px 14px 15px; } .welcome-row { align-items: flex-start; margin-bottom: 16px; } .welcome-row h1 { font-size: 25px; } .welcome-subtitle { max-width: 290px; font-size: 11px; } .welcome-row .eyebrow { flex-wrap: wrap; font-size: 8px; } .profile-chip { display: none; } .hero-card { min-height: 252px; border-radius: 16px; padding: 21px 18px; } .hero-copy { width: 100%; } .hero-copy h2 { font-size: 31px; } .hero-copy > p { max-width: 300px; font-size: 10px; } .hero-meta { max-width: 100%; gap: 8px; font-size: 8px; } .desktop-break { display: none; } .overview-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 11px; } .panel { border-radius: 14px; padding: 15px; } .goal-panel { min-height: 138px; } .app-footer { margin-top: 15px; font-size: 8px; } .section-heading { align-items: flex-start; flex-direction: column; margin-bottom: 16px; } .section-heading h1 { font-size: 27px; } .section-heading .primary-button { min-height: 38px; }
-  .library-copy { padding: 15px; } .progress-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .progress-stat:last-child { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; } .progress-layout { gap: 10px; } .progress-main, .history-panel { padding: 15px; } .weight-chart { height: 200px; } .plan-grid { gap: 10px; } .plan-summary, .guidance-panel { padding: 17px; } .onboarding-page { padding: 18px 13px 12px; } .onboarding-card { margin-top: 20px; padding: 18px 16px 17px; } .onboarding-heading h1 { font-size: 23px; } .form-grid { grid-template-columns: 1fr; gap: 11px; } .field-full { grid-column: auto; } .choice-card { min-height: 64px; } .auth-card { padding: 23px 19px; } .workout-dialog { max-height: 96vh; border-radius: 15px; padding: 16px; } .dialog-header { top: -16px; margin: -16px -16px 0; padding: 15px 16px 12px; } .dialog-header h2 { font-size: 19px; } .session-exercise { padding: 10px; } .session-image { width: 76px; height: 64px; } .set-row { grid-template-columns: minmax(63px, 1fr) 62px 62px 31px; gap: 5px; padding: 5px; } .set-input input { padding: 5px 4px; }
+  .library-copy { padding: 15px; } .progress-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .progress-stat:last-child { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; } .progress-layout { gap: 10px; } .progress-main, .history-panel { padding: 15px; } .weight-chart { height: 200px; } .plan-grid { gap: 10px; } .plan-summary, .guidance-panel { padding: 17px; } .profile-overview-grid { gap: 10px; } .profile-identity-card, .profile-highlights { padding: 15px; } .profile-stat-grid { gap: 6px; } .profile-stat { padding: 8px; } .profile-stat strong { font-size: 16px; } .profile-stat small { font-size: 8px; } .onboarding-page { padding: 18px 13px 12px; } .onboarding-card { margin-top: 20px; padding: 18px 16px 17px; } .onboarding-heading h1 { font-size: 23px; } .form-grid { grid-template-columns: 1fr; gap: 11px; } .field-full { grid-column: auto; } .choice-card { min-height: 64px; } .auth-card { padding: 23px 19px; } .workout-dialog { max-height: 96vh; border-radius: 15px; padding: 16px; } .dialog-header { top: -16px; margin: -16px -16px 0; padding: 15px 16px 12px; } .dialog-header h2 { font-size: 19px; } .session-exercise { padding: 10px; } .session-image { width: 76px; height: 64px; } .set-row { grid-template-columns: minmax(63px, 1fr) 62px 62px 31px; gap: 5px; padding: 5px; } .set-input input { padding: 5px 4px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 

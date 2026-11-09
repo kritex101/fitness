@@ -29,8 +29,8 @@ export default async function Page() {
   }
 
   const [checkinRows, sessionRows, activeRow, metricRows] = await Promise.all([
-    db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)).limit(12),
-    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)).limit(12),
+    db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)),
+    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)),
     db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress'))).orderBy(desc(workoutSessions.startedAt)).limit(1),
     db.select().from(fitnessMetricSnapshots).where(eq(fitnessMetricSnapshots.userId, userId)).orderBy(desc(fitnessMetricSnapshots.createdAt)).limit(90),
   ])
