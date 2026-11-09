@@ -2,11 +2,12 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react'
+import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
 import { labelForExperience, type ExerciseVisualGender, type ExperienceLevel, type FitnessProfile } from '@/lib/fitness-data'
 import { ExerciseVideoSearch } from '@/components/exercise-video-search'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
+import { useVoiceCoach } from '@/lib/use-voice-coach'
 
 const TUTORIAL_SECONDS = 9
 const WORK_SECONDS = 40
@@ -103,10 +104,19 @@ export function WorkoutFlow({
   const completedCount = allSets.filter((set) => set.completed).length
   const timerId = timer?.id
   const timerPaused = timer?.paused
+  const { enabled: voiceCoachEnabled, supported: voiceCoachSupported, toggle: toggleVoiceCoach, stop: stopVoiceCoach } = useVoiceCoach({
+    gender: visualGender,
+    announcementId: workout && position && currentExercise ? `${workout.id}:${position.exerciseIndex}:${currentExercise.id}` : '',
+    exerciseName: currentExercise?.name ?? '',
+    targetGroup: currentExercise?.focus ?? '',
+    repCount: currentSet?.targetReps ?? 0,
+    shouldAnnounce: stage === 'tutorial' && Boolean(currentExercise && currentSet),
+  })
   const closePlayer = useCallback(() => {
+    stopVoiceCoach()
     if (workout && stage !== 'finished') onStarted(workout)
     onClose()
-  }, [onClose, onStarted, stage, workout])
+  }, [onClose, onStarted, stage, stopVoiceCoach, workout])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -171,16 +181,22 @@ export function WorkoutFlow({
   }
 
   function toggleTimer() {
-    setTimer((current) => {
-      if (!current) return current
-      if (current.paused) return { ...current, paused: false, endsAt: Date.now() + current.seconds * 1000 }
-      const seconds = Math.max(0, Math.ceil((current.endsAt - Date.now()) / 1000))
-      if (seconds === 0) return null
-      return { ...current, seconds, paused: true, endsAt: Date.now() + seconds * 1000 }
-    })
+    if (!timer) return
+    if (timer.paused) {
+      setTimer({ ...timer, paused: false, endsAt: Date.now() + timer.seconds * 1000 })
+      return
+    }
+    const seconds = Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000))
+    if (seconds === 0) {
+      setTimer(null)
+      return
+    }
+    stopVoiceCoach()
+    setTimer({ ...timer, seconds, paused: true, endsAt: Date.now() + seconds * 1000 })
   }
 
   function cancelTimer() {
+    stopVoiceCoach()
     timerFinished.current = null
     setTimer(null)
   }
@@ -263,6 +279,7 @@ export function WorkoutFlow({
 
   async function finishSession() {
     if (!workout) return
+    stopVoiceCoach()
     setBusy(true)
     setError('')
     try {
@@ -284,7 +301,7 @@ export function WorkoutFlow({
 
   return <div className="modal-backdrop" role="presentation">
     <section className="workout-dialog workout-player-dialog" role="dialog" aria-modal="true" aria-labelledby="workout-dialog-title">
-      <header className="dialog-header"><div><span className="eyebrow">{workout ? 'GUIDED SESSION' : 'BEFORE YOU BEGIN'}</span><h2 id="workout-dialog-title">{stage === 'finished' ? 'Nice work, ' + profile.name + '.' : workout ? workout.sessionName : 'Quick check-in'}</h2></div><button type="button" className="modal-close" onClick={closePlayer} aria-label="Close workout"><X size={20} /></button></header>
+      <header className="dialog-header"><div><span className="eyebrow">{workout ? 'GUIDED SESSION' : 'BEFORE YOU BEGIN'}</span><h2 id="workout-dialog-title">{stage === 'finished' ? 'Nice work, ' + profile.name + '.' : workout ? workout.sessionName : 'Quick check-in'}</h2></div><div className="dialog-header-actions">{workout && stage !== 'finished' && <button type="button" className="voice-coach-toggle" onClick={toggleVoiceCoach} disabled={!voiceCoachSupported} aria-pressed={voiceCoachEnabled} aria-label={voiceCoachSupported ? `${voiceCoachEnabled ? 'Mute' : 'Unmute'} Voice Coach` : 'Voice Coach unavailable in this browser'} title={voiceCoachSupported ? undefined : 'Voice coaching is not supported in this browser'}>{voiceCoachEnabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}<span className="voice-coach-toggle-label">Voice Coach</span><span className="voice-coach-mobile-label">Voice</span><strong>{voiceCoachSupported ? voiceCoachEnabled ? 'Mute' : 'Unmute' : 'Unavailable'}</strong></button>}<button type="button" className="modal-close" onClick={closePlayer} aria-label="Close workout"><X size={20} /></button></div></header>
       {!workout && <form className="checkin-form" onSubmit={beginSession}>
         <p className="dialog-lede">Every workout begins with a fresh check-in. Add your current weight and a short reflection before your guided session.</p>
         <label className="field"><span>Current weight <b>kg</b></span><input type="number" required min={20} max={500} step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>

@@ -324,6 +324,12 @@ h1, h2, h3, p { margin-top: 0; }
 .dialog-header { position: sticky; top: -22px; z-index: 3; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: -22px -22px 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 19px 22px 14px; }
 .dialog-header .eyebrow { margin-bottom: 4px; }
 .dialog-header h2 { margin: 0; font-size: 21px; letter-spacing: -.045em; }
+.dialog-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.voice-coach-toggle { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 0 10px; color: var(--foreground); font: inherit; font-size: 12px; cursor: pointer; }
+.voice-coach-toggle[aria-pressed="true"] { border-color: var(--primary); background: var(--subtle); }
+.voice-coach-toggle strong { font-size: 12px; font-weight: 700; }
+.voice-coach-mobile-label { display: none; }
+.voice-coach-toggle:disabled { cursor: not-allowed; opacity: .62; }
 .modal-close { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; }
 .checkin-form { display: grid; gap: 14px; padding-top: 17px; }
 .dialog-lede { margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.55; }
@@ -469,7 +475,7 @@ h1, h2, h3, p { margin-top: 0; }
 .player-complete-state p { max-width: 380px; margin: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; }
 @keyframes trainer-drift { from { transform: scale(1); } to { transform: scale(1.04); } }
 @media (max-width: 760px) { .library-exercise-detail, .workout-guidance-layout { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 680px) { .player-title-row { align-items: flex-start; flex-direction: column; } .player-media-controls { width: 100%; justify-content: space-between; } }
+@media (max-width: 680px) { .dialog-header { gap: 9px; } .dialog-header-actions { gap: 6px; } .voice-coach-toggle { gap: 5px; padding: 0 8px; } .voice-coach-toggle-label { display: none; } .voice-coach-mobile-label { display: inline; } .player-title-row { align-items: flex-start; flex-direction: column; } .player-media-controls { width: 100%; justify-content: space-between; } }
 @media (max-width: 860px) { .exercise-catalog-route { padding-right: 26px; padding-left: 26px; } .body-area-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .exercise-catalog-route { padding: 20px 14px 30px; } .exercise-catalog-header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 21px 0; } .exercise-catalog-header h1 { font-size: 29px; } .body-area-picker { gap: 7px; } .body-area-option { min-height: 66px; padding: 9px; } .body-area-option small { font-size: 8px; } .exercise-db-search-form { align-items: stretch; flex-direction: column; } .exercise-db-search-form .primary-button { width: 100%; } .library-results-heading { align-items: flex-start; flex-direction: column; } .trainer-screen { min-height: 240px; } .trainer-badge { margin-left: 14px; margin-bottom: 14px; } .timer-card { margin-right: 10px; margin-bottom: 10px; } .rest-message { top: 14px; left: 14px; } .coach-match-pill { max-width: 125px; font-size: 8px; } .player-title-row h3 { font-size: 18px; } .tutorial-panel, .player-action-panel { padding: 11px; } .set-entry-row { gap: 7px; } }
 
