@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { WorkoutFlow } from '@/components/workout-flow'
 import { buildWorkoutPlan, type FitnessProfile } from '@/lib/fitness-data'
 import type { ActiveWorkoutState } from '@/app/actions/fitness'
@@ -37,9 +38,8 @@ const initialWorkout: ActiveWorkoutState = {
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
-    if (typeof input === 'string' && input.startsWith('/api/youtube/exercise-search')) {
-      const exerciseName = new URL(input, window.location.origin).searchParams.get('q') ?? 'Exercise'
-      return new Response(JSON.stringify({ videos: [{ videoId: 'M7lc1UVf-VE', title: `${exerciseName} demonstration`, channelTitle: 'FitPilot verification', thumbnailUrl: null }] }), {
+    if (typeof input === 'string' && input.startsWith('/api/exercise-media')) {
+      return new Response(JSON.stringify({ media: [], unavailableSources: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -49,10 +49,12 @@ if (typeof window !== 'undefined') {
 }
 
 export default function WorkoutVerificationPage() {
+  const [visualGender, setVisualGender] = useState<'male' | 'female'>('female')
+
   return <WorkoutFlow
     profile={profile}
-    visualGender="female"
-    onVisualGenderChange={() => {}}
+    visualGender={visualGender}
+    onVisualGenderChange={setVisualGender}
     initialWeightKg={profile.weightKg}
     initialWorkout={initialWorkout}
     onClose={() => { window.location.href = '/' }}

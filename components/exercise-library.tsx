@@ -3,7 +3,7 @@
 import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { ExerciseDbBrowser } from '@/components/exercise-db-browser'
-import { ExerciseVideoSearch } from '@/components/exercise-video-search'
+import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 import { bodyAreas, type BodyArea, type ExerciseVisualGender, type PlannedExercise } from '@/lib/fitness-data'
 
@@ -73,8 +73,8 @@ export function ExerciseLibrary({ exercises, visualGender: controlledVisualGende
                   {exercise.homeOption && <p className="home-option">{exercise.homeOption}</p>}
                 </div>
                 <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
-                  <span className="eyebrow">VIDEO DEMONSTRATION</span>
-                  <ExerciseVideoSearch exerciseId={exercise.id} exerciseName={exercise.name} gender={visualGender} />
+                  <span className="eyebrow">MOVEMENT GUIDE</span>
+                  <ExerciseMediaGallery exerciseName={exercise.name} gender={visualGender} />
                 </aside>
               </div>
             </div>

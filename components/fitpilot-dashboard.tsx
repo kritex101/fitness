@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Activity, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, CircleHelp, Clock3, Dumbbell, House, LogOut, Menu, Pencil, Sparkles, Target, UserRound, X } from 'lucide-react'
+import { Activity, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, CircleHelp, Clock3, Dumbbell, House, LogOut, Menu, Pencil, Settings2, Sparkles, Target, UserRound, X } from 'lucide-react'
+import { SettingsControls } from '@/components/settings-controls'
+import { SettingsDialog } from '@/components/settings-dialog'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 import { ExerciseLibrary } from '@/components/exercise-library'
 import { WeeklyTrainingSchedule } from '@/components/weekly-training-schedule'
@@ -17,7 +19,7 @@ import type { ActiveWorkoutState } from '@/app/actions/fitness'
 
 type Checkin = { id: string; weightKg: number; reflection: string; createdAt: string }
 type WorkoutSession = { id: string; sessionName: string; status: string; startedAt: string; endedAt: string | null }
-type NavItem = 'Overview' | 'Training' | 'Progress' | 'Profile' | 'My plan'
+type NavItem = 'Overview' | 'Training' | 'Progress' | 'Profile' | 'My plan' | 'Settings'
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'FP'
@@ -67,6 +69,7 @@ export function FitPilotDashboard({
   const [activeNav, setActiveNav] = useState<NavItem>('Overview')
   const [workoutOpen, setWorkoutOpen] = useState(false)
   const [planEditorOpen, setPlanEditorOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [visualGender, setVisualGender] = useState<ExerciseVisualGender>(() => profile.gender === 'woman' ? 'female' : 'male')
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkoutState | null>(initialWorkout)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -107,6 +110,7 @@ export function FitPilotDashboard({
     { name: 'Progress' as const, icon: BarChart3 },
     { name: 'Profile' as const, icon: UserRound },
     { name: 'My plan' as const, icon: CalendarDays },
+    { name: 'Settings' as const, icon: Settings2 },
   ]
 
   return <div className="app-frame">
@@ -123,7 +127,7 @@ export function FitPilotDashboard({
       <header className="topbar">
         <button type="button" className="mobile-menu-button" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}>{mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}</button>
         <div className="breadcrumb"><span>FitPilot</span><span className="breadcrumb-slash">/</span><strong>{activeNav}</strong></div>
-        <div className="topbar-actions"><span className="today-date">{todayLabel}</span><PwaInstallPrompt /><button type="button" className="help-button" aria-label="View evidence-based guidance" onClick={() => setActiveNav('Progress')}><CircleHelp size={18} /></button></div>
+        <div className="topbar-actions"><span className="today-date">{todayLabel}</span><PwaInstallPrompt /><button type="button" className="help-button" aria-label="Open quick settings" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings2 size={18} /></button><button type="button" className="help-button" aria-label="View evidence-based guidance" onClick={() => setActiveNav('Progress')}><CircleHelp size={18} /></button></div>
       </header>
       <div className="dashboard-content">
         {activeNav === 'Overview' && <>
@@ -141,10 +145,12 @@ export function FitPilotDashboard({
         {activeNav === 'Progress' && <section className="page-section"><div className="section-heading"><div><p className="eyebrow">YOUR HISTORY, NOT A SCORECARD</p><h1>Progress over time</h1><p>Check-ins, completed sessions, and reflections help you spot meaningful patterns.</p></div><button className="primary-button" type="button" onClick={openWorkout}>{activeWorkout ? 'Resume session' : 'Start a check-in'} <ArrowRight size={16} /></button></div><ProgressPanel checkins={checkins} sessions={sessions} goal={profile.goal} /></section>}
         {activeNav === 'Profile' && <ProfilePage profile={profile} email={email} checkins={checkins} sessions={sessions} hasActiveWorkout={Boolean(activeWorkout)} onEditPlan={() => setPlanEditorOpen(true)} />}
         {activeNav === 'My plan' && <section className="page-section"><div className="section-heading"><div><p className="eyebrow">YOUR STARTING POINT</p><h1>A plan that fits you</h1><p>Built from the choices you made at onboarding—not assumptions about your body.</p></div><button className="primary-button" type="button" onClick={openWorkout}>{activeWorkout ? 'Resume session' : 'Start a session'} <ArrowRight size={16} /></button></div><div className="plan-grid"><section className="panel plan-summary"><div className="plan-summary-heading"><span className="eyebrow">PRIMARY TARGET</span><button type="button" className="secondary-button plan-edit-button" onClick={() => setPlanEditorOpen(true)} disabled={Boolean(activeWorkout)} title={activeWorkout ? 'Finish your active workout before changing plans.' : undefined}><Pencil size={14} /> Edit plan</button></div><h2>{labelForGoal(profile.goal)}</h2><p>Your current plan uses {plan.length} full-body movements and {plan[0]?.sets} sets per movement. Beginners start with two weekly sessions; more experienced users start with three.</p><div className="plan-tags"><span><Target size={14} /> {labelForExperience(profile.experience)}</span><span><Dumbbell size={14} /> {labelForEnvironment(profile.environment)}</span></div><div className="plan-measurements"><div><span>Age</span><strong>{profile.age}</strong></div><div><span>Height</span><strong>{profile.heightCm.toFixed(0)} cm</strong></div><div><span>Starting weight</span><strong>{profile.weightKg.toFixed(1)} kg</strong></div></div></section><section className="panel guidance-panel"><span className="eyebrow">EVIDENCE-LED GUIDANCE</span><h2>Train for the long game.</h2><ul><li>WHO adult guidance: work toward 150–300 minutes of moderate activity weekly, plus muscle strengthening on 2 or more days.</li><li>Use a controlled load and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</li><li>When you reach the top of the rep range for every set with steady form in two sessions, consider a small load increase.</li><li>Scale weight alone cannot distinguish muscle, fat, or normal water changes; trends need repeated, consistent check-ins.</li></ul><a href="https://www.who.int/news-room/fact-sheets/detail/physical-activity" target="_blank" rel="noreferrer">Read WHO physical activity guidance <ArrowRight size={14} /></a><a href="https://www.cdc.gov/healthy-weight-growth/losing-weight/index.html" target="_blank" rel="noreferrer">Read CDC gradual weight guidance <ArrowRight size={14} /></a><p className="medical-note">FitPilot offers general fitness education, not medical advice. Talk with a qualified professional about health conditions, pain, pregnancy, or individualized weight targets.</p></section></div></section>}
+        {activeNav === 'Settings' && <section className="page-section settings-page"><div className="section-heading"><div><p className="eyebrow">MAKE FITPILOT YOURS</p><h1>Settings</h1><p>Personalize the app&apos;s appearance and the way your Voice Coach guides each session.</p></div><button className="secondary-button settings-open-modal" type="button" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog"><Settings2 size={15} aria-hidden="true" /> Quick settings</button></div><SettingsControls idPrefix="settings-page" /></section>}
         <footer className="app-footer"><span>Made for your long game.</span><span><Activity size={14} /> One step at a time</span></footer>
       </div>
     </main>
     {workoutOpen && <WorkoutFlow profile={profile} visualGender={visualGender} onVisualGenderChange={setVisualGender} initialWeightKg={latestWeight} initialWorkout={activeWorkout} onClose={() => setWorkoutOpen(false)} onStarted={setActiveWorkout} onCompleted={() => { setActiveWorkout(null); router.refresh() }} />}
     {planEditorOpen && <PlanEditorDialog profile={profile} hasActiveWorkout={Boolean(activeWorkout)} onClose={() => setPlanEditorOpen(false)} onSaved={() => { setPlanEditorOpen(false); router.refresh() }} />}
+    {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
   </div>
 }

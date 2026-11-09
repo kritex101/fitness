@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
+import { useAppSettings } from '@/components/app-settings-provider'
 
 type VoiceCoachOptions = {
   gender: ExerciseVisualGender
@@ -43,7 +44,8 @@ function splitIntoSentences(text: string) {
 }
 
 export function useVoiceCoach({ gender }: VoiceCoachOptions) {
-  const [enabled, setEnabled] = useState(true)
+  const { preferences, voices, speechSupported, updateVoice } = useAppSettings()
+  const enabled = preferences.voice.enabled
   const [supported, setSupported] = useState(false)
   const activeUtterances = useRef<SpeechSynthesisUtterance[]>([])
   const pendingSpeechStart = useRef<number | null>(null)
@@ -63,8 +65,8 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
 
   const toggle = useCallback(() => {
     if (enabled) stop()
-    setEnabled((current) => !current)
-  }, [enabled, stop])
+    updateVoice({ enabled: !enabled })
+  }, [enabled, stop, updateVoice])
 
   const speakText = useCallback((text: string) => {
     if (!enabled || !supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
@@ -83,7 +85,7 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
 
       const readySynthesis = window.speechSynthesis
       if (!readySynthesis || typeof readySynthesis.cancel !== 'function' || typeof readySynthesis.speak !== 'function' || typeof readySynthesis.getVoices !== 'function') return
-      const voice = preferredVoice(readySynthesis.getVoices(), gender)
+      const voice = voices.find((item) => item.voiceURI === preferences.voice.voiceURI) ?? preferredVoice(readySynthesis.getVoices(), gender)
       const utterances = sentences.map((sentence) => {
         const utterance = new SpeechSynthesisUtterance(sentence)
         if (voice) {
@@ -92,9 +94,9 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
         } else {
           utterance.lang = navigator.language || 'en-US'
         }
-        utterance.rate = gender === 'female' ? 1.03 : 0.96
-        utterance.pitch = gender === 'female' ? 1.08 : 0.92
-        utterance.volume = 1
+        utterance.rate = preferences.voice.rate
+        utterance.pitch = preferences.voice.pitch
+        utterance.volume = preferences.voice.volume / 100
         return utterance
       })
       activeUtterances.current = utterances
@@ -120,13 +122,39 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
 
       speakNextSentence(0)
     }, 50)
-  }, [enabled, gender, stop, supported])
+  }, [enabled, gender, preferences.voice, stop, supported, voices])
+
+  const testVoice = useCallback(() => {
+    if (!supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
+    const synthesis = window.speechSynthesis
+    if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function') return
+    stop()
+    const voice = voices.find((item) => item.voiceURI === preferences.voice.voiceURI) ?? preferredVoice(synthesis.getVoices(), gender)
+    const utterance = new SpeechSynthesisUtterance('Your next set starts now. Keep your movement steady and breathe.')
+    if (voice) {
+      utterance.voice = voice
+      utterance.lang = voice.lang
+    } else {
+      utterance.lang = navigator.language || 'en-US'
+    }
+    utterance.rate = preferences.voice.rate
+    utterance.pitch = preferences.voice.pitch
+    utterance.volume = preferences.voice.volume / 100
+    activeUtterances.current = [utterance]
+    utterance.onend = () => { activeUtterances.current = [] }
+    utterance.onerror = () => { activeUtterances.current = [] }
+    try {
+      synthesis.speak(utterance)
+    } catch {
+      activeUtterances.current = []
+    }
+  }, [gender, preferences.voice, stop, supported, voices])
 
   useEffect(() => {
-    setSupported(typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.speechSynthesis.speak === 'function' && typeof window.speechSynthesis.cancel === 'function' && typeof SpeechSynthesisUtterance !== 'undefined')
-  }, [])
+    setSupported(speechSupported && typeof SpeechSynthesisUtterance !== 'undefined')
+  }, [speechSupported])
 
   useEffect(() => () => stop(), [stop])
 
-  return { enabled, supported, toggle, speakText, stop }
+  return { enabled, supported, toggle, speakText, stop, testVoice }
 }

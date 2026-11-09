@@ -3,7 +3,7 @@
 import { useCallback, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { LoaderCircle, Search } from 'lucide-react'
 import useSWRInfinite from 'swr/infinite'
-import { ExerciseVideoSearch } from '@/components/exercise-video-search'
+import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 import { exerciseDbTargets, type ExerciseDbExercise } from '@/lib/exercise-db-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
@@ -100,8 +100,8 @@ export function ExerciseDbBrowser({ gender, onVisualGenderChange }: { gender: Ex
                   {exercise.instructions.length ? <ol className="exercise-instructions">{exercise.instructions.map((instruction, instructionIndex) => <li key={`${exercise.id}-${instructionIndex}`}>{instruction}</li>)}</ol> : <p className="exercise-db-empty-instructions">Instructions are not available for this exercise.</p>}
                 </div>
                 <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
-                  <span className="eyebrow">VIDEO DEMONSTRATION</span>
-                  <ExerciseVideoSearch key={`${exercise.id}-${gender}`} exerciseId={exercise.id} exerciseName={exercise.name} gender={gender} autoLoad />
+                  <span className="eyebrow">MOVEMENT GUIDE</span>
+                  <ExerciseMediaGallery key={`${exercise.id}-${gender}`} exerciseName={exercise.name} gender={gender} />
                 </aside>
               </div>
             </div>

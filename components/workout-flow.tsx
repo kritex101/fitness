@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
 import { labelForExperience, type ExerciseVisualGender, type ExperienceLevel, type FitnessProfile } from '@/lib/fitness-data'
-import { ExerciseVideoSearch } from '@/components/exercise-video-search'
+import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 import { useVoiceCoach } from '@/lib/use-voice-coach'
 
@@ -175,9 +175,13 @@ export function WorkoutFlow({
 
   function beginInterval() {
     stopVoiceCoach()
+    speakText(`Your ${WORK_SECONDS}-second work interval starts now.`)
     setStage('active')
     setWorkIntervalFinished(false)
-    startTimer('work', WORK_SECONDS, () => setWorkIntervalFinished(true))
+    startTimer('work', WORK_SECONDS, () => {
+      speakText('Interval complete. Record your set when you are ready.')
+      setWorkIntervalFinished(true)
+    })
   }
 
   function finishIntervalEarly() {
@@ -225,8 +229,9 @@ export function WorkoutFlow({
       setPosition(nextPosition)
       setAfterRestStage(restStage)
       setStage('rest')
+      speakText(`Take ${currentExercise.restSeconds} seconds to recover.`)
       startTimer('rest', currentExercise.restSeconds, () => {
-        stopVoiceCoach()
+        speakText('Rest complete. You are ready for the next set.')
         setStage(restStage)
       })
     } catch (cause) {
@@ -292,7 +297,7 @@ export function WorkoutFlow({
             <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
               <span className="eyebrow">VISUAL GUIDE</span>
               <h4>Watch the movement</h4>
-              <ExerciseVideoSearch key={currentExercise.id} exerciseId={currentExercise.id} exerciseName={currentExercise.name} gender={visualGender} autoLoad />
+              <ExerciseMediaGallery key={`${currentExercise.id}-${visualGender}`} exerciseName={currentExercise.name} gender={visualGender} autoLoad />
             </aside>
           </div>
           {stage === 'tutorial' && <div className="player-action-panel"><p className="dialog-lede">The coach will read only the movement procedures. This session waits here until you choose to continue.</p><button type="button" className="primary-button dialog-primary" onClick={() => setStage('ready')}>Continue when ready <ArrowRight size={16} /></button></div>}

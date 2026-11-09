@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Geist } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { PwaRegistration } from '@/components/pwa-registration'
+import { AppSettingsProvider } from '@/components/app-settings-provider'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -28,15 +29,15 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  colorScheme: 'light',
+  colorScheme: 'light dark',
   themeColor: '#17251F',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="bg-background" data-scroll-behavior="smooth">
+    <html lang="en" className="bg-background theme-system" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${geist.variable} antialiased`}>
-        {children}
+        <AppSettingsProvider>{children}</AppSettingsProvider>
         <PwaRegistration />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
