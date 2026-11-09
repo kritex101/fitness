@@ -5,9 +5,6 @@ import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
 type VoiceCoachOptions = {
   gender: ExerciseVisualGender
-  announcementId: string
-  message: string
-  shouldAnnounce: boolean
 }
 
 const voiceNameMatchers: Record<ExerciseVisualGender, RegExp> = {
@@ -29,59 +26,107 @@ function preferredVoice(voices: SpeechSynthesisVoice[], gender: ExerciseVisualGe
     ?? voices[0]
 }
 
-export function useVoiceCoach({ gender, announcementId, message, shouldAnnounce }: VoiceCoachOptions) {
+function cleanSpeechText(text: string) {
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, ' and ')
+    .replace(/&quot;/gi, ' ')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;|&gt;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function splitIntoSentences(text: string) {
+  return text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? []
+}
+
+export function useVoiceCoach({ gender }: VoiceCoachOptions) {
   const [enabled, setEnabled] = useState(true)
   const [supported, setSupported] = useState(false)
-  const lastAnnouncement = useRef('')
+  const activeUtterances = useRef<SpeechSynthesisUtterance[]>([])
+  const pendingSpeechStart = useRef<number | null>(null)
+  const speechGeneration = useRef(0)
 
   const stop = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+    speechGeneration.current += 1
+    if (pendingSpeechStart.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(pendingSpeechStart.current)
+      pendingSpeechStart.current = null
+    }
+    activeUtterances.current = []
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
   }, [])
 
   const toggle = useCallback(() => {
     if (enabled) stop()
-    else lastAnnouncement.current = ''
-    setEnabled(!enabled)
+    setEnabled((current) => !current)
   }, [enabled, stop])
 
-  useEffect(() => {
-    setSupported(typeof window.speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined')
-  }, [])
-
-  useEffect(() => {
-    if (!shouldAnnounce) {
-      stop()
-      lastAnnouncement.current = ''
-      return
-    }
-    if (!enabled || !supported || !announcementId || !message) return
-
-    const key = `${announcementId}:${gender}`
-    if (lastAnnouncement.current === key) return
+  const speakText = useCallback((text: string) => {
+    if (!enabled || !supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
 
     const synthesis = window.speechSynthesis
-    const voice = preferredVoice(synthesis.getVoices(), gender)
-    const utterance = new SpeechSynthesisUtterance(message)
-    if (voice) {
-      utterance.voice = voice
-      utterance.lang = voice.lang
-    } else {
-      utterance.lang = navigator.language || 'en-US'
-    }
-    utterance.rate = gender === 'female' ? 1.03 : 0.96
-    utterance.pitch = gender === 'female' ? 1.08 : 0.92
-    utterance.volume = 1
+    if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function') return
 
-    try {
-      synthesis.cancel()
-      synthesis.speak(utterance)
-      lastAnnouncement.current = key
-    } catch {
-      lastAnnouncement.current = ''
-    }
-  }, [announcementId, enabled, gender, message, shouldAnnounce, stop, supported])
+    const sentences = splitIntoSentences(cleanSpeechText(text))
+    if (sentences.length === 0) return
+
+    stop()
+    const requestGeneration = speechGeneration.current
+    pendingSpeechStart.current = window.setTimeout(() => {
+      pendingSpeechStart.current = null
+      if (requestGeneration !== speechGeneration.current || !enabled || document.visibilityState === 'hidden') return
+
+      const readySynthesis = window.speechSynthesis
+      if (!readySynthesis || typeof readySynthesis.cancel !== 'function' || typeof readySynthesis.speak !== 'function' || typeof readySynthesis.getVoices !== 'function') return
+      const voice = preferredVoice(readySynthesis.getVoices(), gender)
+      const utterances = sentences.map((sentence) => {
+        const utterance = new SpeechSynthesisUtterance(sentence)
+        if (voice) {
+          utterance.voice = voice
+          utterance.lang = voice.lang
+        } else {
+          utterance.lang = navigator.language || 'en-US'
+        }
+        utterance.rate = gender === 'female' ? 1.03 : 0.96
+        utterance.pitch = gender === 'female' ? 1.08 : 0.92
+        utterance.volume = 1
+        return utterance
+      })
+      activeUtterances.current = utterances
+
+      const speakNextSentence = (index: number) => {
+        if (requestGeneration !== speechGeneration.current) return
+        if (index >= utterances.length) {
+          activeUtterances.current = []
+          return
+        }
+
+        const utterance = utterances[index]
+        utterance.onend = () => speakNextSentence(index + 1)
+        utterance.onerror = () => {
+          if (requestGeneration === speechGeneration.current) speakNextSentence(index + 1)
+        }
+        try {
+          readySynthesis.speak(utterance)
+        } catch {
+          activeUtterances.current = []
+        }
+      }
+
+      speakNextSentence(0)
+    }, 50)
+  }, [enabled, gender, stop, supported])
+
+  useEffect(() => {
+    setSupported(typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.speechSynthesis.speak === 'function' && typeof window.speechSynthesis.cancel === 'function' && typeof SpeechSynthesisUtterance !== 'undefined')
+  }, [])
 
   useEffect(() => () => stop(), [stop])
 
-  return { enabled, supported, toggle, stop }
+  return { enabled, supported, toggle, speakText, stop }
 }
