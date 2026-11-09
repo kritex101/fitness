@@ -6,9 +6,7 @@ import type { ExerciseVisualGender } from '@/lib/fitness-data'
 type VoiceCoachOptions = {
   gender: ExerciseVisualGender
   announcementId: string
-  exerciseName: string
-  targetGroup: string
-  repCount: number
+  message: string
   shouldAnnounce: boolean
 }
 
@@ -31,7 +29,7 @@ function preferredVoice(voices: SpeechSynthesisVoice[], gender: ExerciseVisualGe
     ?? voices[0]
 }
 
-export function useVoiceCoach({ gender, announcementId, exerciseName, targetGroup, repCount, shouldAnnounce }: VoiceCoachOptions) {
+export function useVoiceCoach({ gender, announcementId, message, shouldAnnounce }: VoiceCoachOptions) {
   const [enabled, setEnabled] = useState(true)
   const [supported, setSupported] = useState(false)
   const lastAnnouncement = useRef('')
@@ -56,15 +54,14 @@ export function useVoiceCoach({ gender, announcementId, exerciseName, targetGrou
       lastAnnouncement.current = ''
       return
     }
-    if (!enabled || !supported || !announcementId || !exerciseName || repCount < 1) return
+    if (!enabled || !supported || !announcementId || !message) return
 
     const key = `${announcementId}:${gender}`
     if (lastAnnouncement.current === key) return
 
     const synthesis = window.speechSynthesis
     const voice = preferredVoice(synthesis.getVoices(), gender)
-    const target = targetGroup.replace(/\s*[·•]\s*/g, ', ').trim() || 'the listed muscle group'
-    const utterance = new SpeechSynthesisUtterance(`Starting ${Math.round(repCount)} reps of ${exerciseName}. Target muscle group: ${target}. Get ready... 3... 2... 1... Go!`)
+    const utterance = new SpeechSynthesisUtterance(message)
     if (voice) {
       utterance.voice = voice
       utterance.lang = voice.lang
@@ -82,7 +79,7 @@ export function useVoiceCoach({ gender, announcementId, exerciseName, targetGrou
     } catch {
       lastAnnouncement.current = ''
     }
-  }, [announcementId, enabled, exerciseName, gender, repCount, shouldAnnounce, stop, supported, targetGroup])
+  }, [announcementId, enabled, gender, message, shouldAnnounce, stop, supported])
 
   useEffect(() => () => stop(), [stop])
 
