@@ -6,7 +6,7 @@ import useSWR from 'swr'
 import type { ExerciseMediaResponse, ExerciseMediaSource } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
-const validSources: ExerciseMediaSource[] = ['musclewiki', 'workoutx', 'exercisedb']
+const validSources: ExerciseMediaSource[] = ['musclewiki', 'workoutx', 'exercisedb', 'ninjas']
 
 async function fetchExerciseMedia(url: string): Promise<ExerciseMediaResponse> {
   const response = await fetch(url)
@@ -24,7 +24,7 @@ async function fetchExerciseMedia(url: string): Promise<ExerciseMediaResponse> {
 
   const payload = await response.json().catch(() => null) as (ExerciseMediaResponse & { error?: string }) | null
   if (!response.ok) throw new Error(payload?.error ?? 'Exercise media could not be loaded.')
-  if (!payload || typeof payload.videoUrl !== 'string' || !validSources.includes(payload.source)) {
+  if (!payload || typeof payload.videoUrl !== 'string' || !validSources.includes(payload.source) || !['video', 'gif', 'image'].includes(payload.mediaType)) {
     throw new Error('Exercise media returned an invalid response.')
   }
   return payload
@@ -56,7 +56,8 @@ export function ExerciseMediaGallery({ exerciseName, gender, autoLoad = false }:
     shouldRetryOnError: false,
   })
   const mediaFailed = failedMediaKey === mediaKey
-  const isGif = data ? data.source === 'exercisedb' || /\.gif(?:$|[?#])/i.test(data.videoUrl) : false
+  const isImage = data ? data.mediaType === 'image' || data.source === 'ninjas' : false
+  const isGif = data ? data.mediaType === 'gif' || data.source === 'exercisedb' || /\.gif(?:$|[?#])/i.test(data.videoUrl) : false
 
   function retryMedia() {
     setFailedMediaKey('')
@@ -88,11 +89,24 @@ export function ExerciseMediaGallery({ exerciseName, gender, autoLoad = false }:
       <div className="exercise-media-list">
         <figure className="exercise-media-card">
           <div className="exercise-media-frame">
-            {isGif ? (
+            {isImage && data.imageUrls && data.imageUrls.length > 1 ? (
+              <div className="exercise-media-image-sequence">
+                {data.imageUrls.map((imageUrl, index) => (
+                  <img
+                    key={imageUrl}
+                    className="exercise-media-player"
+                    src={imageUrl}
+                    alt={`${exerciseName} demonstration frame ${index + 1}`}
+                    loading="eager"
+                    onError={() => setFailedMediaKey(mediaKey)}
+                  />
+                ))}
+              </div>
+            ) : isImage || isGif ? (
               <img
                 className="exercise-media-player"
                 src={data.videoUrl}
-                alt={`${exerciseName} animated exercise demonstration`}
+                alt={isGif ? `${exerciseName} animated exercise demonstration` : `${exerciseName} exercise reference image`}
                 loading="eager"
                 onError={() => setFailedMediaKey(mediaKey)}
               />
@@ -114,8 +128,8 @@ export function ExerciseMediaGallery({ exerciseName, gender, autoLoad = false }:
             )}
           </div>
           <figcaption className="exercise-media-caption">
-            <strong>{data.source === 'exercisedb' ? 'ExerciseDB' : data.source === 'musclewiki' ? 'MuscleWiki' : 'WorkoutX'}</strong>
-            <span>{isGif ? 'Animated GIF' : 'Looping video demonstration'}</span>
+            <strong>{data.source === 'exercisedb' ? 'ExerciseDB' : data.source === 'musclewiki' ? 'MuscleWiki' : data.source === 'ninjas' ? 'API Ninjas' : 'WorkoutX'}</strong>
+            <span>{isImage ? 'Movement reference frames (not animated)' : isGif ? 'Animated GIF' : 'Looping video demonstration'}</span>
           </figcaption>
         </figure>
       </div>

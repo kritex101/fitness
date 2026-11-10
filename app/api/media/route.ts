@@ -7,6 +7,7 @@ import type { ExerciseVisualGender } from '@/lib/fitness-data'
 const MUSCLEWIKI_BASE_URL = 'https://api.musclewiki.com'
 const WORKOUTX_BASE_URL = 'https://api.workoutxapp.com/v2'
 const EXERCISEDB_BASE_URL = 'https://exercisedb.p.rapidapi.com'
+const API_NINJAS_BASE_URL = 'https://api.api-ninjas.com'
 
 type ProviderStatus = {
   provider: ExerciseMediaSource
@@ -14,10 +15,7 @@ type ProviderStatus = {
   status: number | 'network_error' | 'not_configured'
 }
 
-type ProviderResponse = {
-  videoUrl: string
-  source: ExerciseMediaSource
-}
+type ProviderResponse = ExerciseMediaResponse
 
 type MediaCandidate = { url: string }
 
@@ -72,6 +70,10 @@ function safeHttpsUrl(value: unknown) {
   } catch {
     return null
   }
+}
+
+function getVideoMediaType(url: string): 'video' | 'gif' {
+  return /\.gif(?:$|[?#])/i.test(url) ? 'gif' : 'video'
 }
 
 const mediaUrlFields = [
@@ -191,6 +193,23 @@ async function fetchExerciseDbMedia(name: string, apiKey: string, statuses: Prov
   return exercise ? safeHttpsUrl(exercise.gifUrl) : null
 }
 
+async function fetchApiNinjasMedia(name: string, apiKey: string, statuses: ProviderStatus[]) {
+  const exerciseUrl = new URL('/v1/exercises', API_NINJAS_BASE_URL)
+  exerciseUrl.searchParams.set('name', name)
+  const response = await fetchProvider('ninjas', 'exercise image lookup', exerciseUrl, { 'X-Api-Key': apiKey }, statuses)
+  if (!response?.ok) return null
+
+  const exercise = findExactExercise(getRecords(await readJson(response)), name)
+  const imageUrls = Array.isArray(exercise?.images)
+    ? exercise.images.map(safeHttpsUrl).filter((url): url is string => Boolean(url)).slice(0, 2)
+    : []
+  if (!imageUrls.length) {
+    console.log('[v0] /api/media API Ninjas returned no exercise images')
+    return null
+  }
+  return { videoUrl: imageUrls[0], imageUrls }
+}
+
 function addStatusesHeader(response: NextResponse, statuses: ProviderStatus[]) {
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('X-Media-Provider-Statuses', JSON.stringify(statuses))
@@ -217,12 +236,13 @@ export async function GET(request: Request) {
   const muscleWikiKey = process.env.MUSCLEWIKI_API_KEY
   const workoutXKey = process.env.WORKOUTX_API_KEY ?? process.env.WORKOUTX_KEY
   const exerciseDbKey = process.env.RAPIDAPI_EXERCISE_KEY
+  const ninjasKey = process.env.NINJAS_API_KEY
   const statuses: ProviderStatus[] = []
   let result: ProviderResponse | null = null
 
   if (muscleWikiKey) {
     const videoUrl = await fetchMuscleWikiMedia(name, gender as ExerciseVisualGender, muscleWikiKey, statuses)
-    if (videoUrl) result = { videoUrl, source: 'musclewiki' }
+    if (videoUrl) result = { videoUrl, source: 'musclewiki', mediaType: getVideoMediaType(videoUrl) }
   } else {
     statuses.push({ provider: 'musclewiki', stage: 'exercise search', status: 'not_configured' })
     console.log('[v0] /api/media MuscleWiki not configured')
@@ -230,7 +250,7 @@ export async function GET(request: Request) {
 
   if (!result && workoutXKey) {
     const videoUrl = await fetchWorkoutXMedia(name, gender as ExerciseVisualGender, workoutXKey, statuses)
-    if (videoUrl) result = { videoUrl, source: 'workoutx' }
+    if (videoUrl) result = { videoUrl, source: 'workoutx', mediaType: getVideoMediaType(videoUrl) }
   } else if (!result) {
     statuses.push({ provider: 'workoutx', stage: 'exercise search', status: 'not_configured' })
     console.log('[v0] /api/media WorkoutX not configured')
@@ -238,10 +258,18 @@ export async function GET(request: Request) {
 
   if (!result && exerciseDbKey) {
     const videoUrl = await fetchExerciseDbMedia(name, exerciseDbKey, statuses)
-    if (videoUrl) result = { videoUrl, source: 'exercisedb' }
+    if (videoUrl) result = { videoUrl, source: 'exercisedb', mediaType: 'gif' }
   } else if (!result) {
     statuses.push({ provider: 'exercisedb', stage: 'GIF lookup', status: 'not_configured' })
     console.log('[v0] /api/media ExerciseDB not configured')
+  }
+
+  if (!result && ninjasKey) {
+    const media = await fetchApiNinjasMedia(name, ninjasKey, statuses)
+    if (media) result = { ...media, source: 'ninjas', mediaType: 'image' }
+  } else if (!result) {
+    statuses.push({ provider: 'ninjas', stage: 'exercise image lookup', status: 'not_configured' })
+    console.log('[v0] /api/media API Ninjas not configured')
   }
 
   if (result) {
@@ -249,7 +277,7 @@ export async function GET(request: Request) {
     return addStatusesHeader(NextResponse.json<ExerciseMediaResponse>(result), statuses)
   }
 
-  const anyConfigured = Boolean(muscleWikiKey || workoutXKey || exerciseDbKey)
+  const anyConfigured = Boolean(muscleWikiKey || workoutXKey || exerciseDbKey || ninjasKey)
   const hasProviderFailure = statuses.some(({ status }) => status === 'network_error' || (typeof status === 'number' && (status < 200 || status >= 300)))
   const status = !anyConfigured ? 503 : hasProviderFailure ? 502 : 404
   const message = status === 404

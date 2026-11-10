@@ -39,7 +39,7 @@ if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
     if (typeof input === 'string' && input.startsWith('/api/media')) {
-      return new Response(JSON.stringify({ videoUrl: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', source: 'exercisedb' }), {
+      return new Response(JSON.stringify({ videoUrl: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', source: 'exercisedb', mediaType: 'gif' }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
