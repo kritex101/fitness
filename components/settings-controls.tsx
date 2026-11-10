@@ -43,7 +43,7 @@ export function SettingsControls({ idPrefix }: { idPrefix: string }) {
       {!speechSupported && <p className="settings-note" role="status">Speech synthesis is not available in this browser.</p>}
       {speechSupported && voices.length === 0 && <p className="settings-note" role="status">No system voice list is available yet. Automatic voice will use your browser&apos;s default.</p>}
       <label className="settings-field" htmlFor={`${idPrefix}-voice`}><span><strong>Voice</strong><small>Only voices currently provided by this browser are listed.</small></span><select id={`${idPrefix}-voice`} value={selectedVoiceIndex < 0 ? '' : String(selectedVoiceIndex)} onChange={(event) => {
-        const voice = voices[Number(event.target.value)]
+        const voice = event.target.value === '' ? undefined : voices[Number(event.target.value)]
         updateVoice({ voiceURI: voice?.voiceURI ?? '', voiceName: voice?.name ?? '', voiceLang: voice?.lang ?? '' })
       }} disabled={!speechSupported}>
         <option value="">Automatic voice</option>

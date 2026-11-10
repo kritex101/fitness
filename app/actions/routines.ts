@@ -71,6 +71,10 @@ export async function saveCustomRoutine(input: unknown) {
   const validated = validateRoutine(input)
   const now = new Date()
 
+  if (validated.id === activePlanId(userId)) {
+    throw new Error('Use the active plan editor to change your workout plan.')
+  }
+
   if (validated.id) {
     const [updated] = await db.update(fitnessCustomRoutines).set({
       name: validated.name,
@@ -123,6 +127,7 @@ export async function saveActiveWorkoutPlan(input: unknown) {
 export async function deleteCustomRoutine(id: string) {
   const userId = await getUserId()
   if (typeof id !== 'string' || id.length > 80) throw new Error('This routine could not be identified.')
+  if (id === activePlanId(userId)) throw new Error('Your active workout plan cannot be deleted from saved routines.')
   const [deleted] = await db.delete(fitnessCustomRoutines).where(and(
     eq(fitnessCustomRoutines.id, id),
     eq(fitnessCustomRoutines.userId, userId),

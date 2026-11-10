@@ -58,11 +58,13 @@ function getRecords(value: unknown): Record<string, unknown>[] {
   return [value]
 }
 
-function findExactExercise(records: Record<string, unknown>[], name: string) {
+function findExactExercise(records: Record<string, unknown>[], name: string, gender?: ExerciseVisualGender) {
   return records.find((record) => {
     const recordName = [record.name, record.exercise_name, record.exerciseName, record.title]
       .find((candidate) => typeof candidate === 'string')
-    return typeof recordName === 'string' && normalizeExerciseName(recordName) === name
+    return typeof recordName === 'string'
+      && normalizeExerciseName(recordName) === name
+      && (!gender || matchesGender(record, gender))
   })
 }
 
@@ -113,9 +115,13 @@ function findMediaCandidate(value: unknown, depth = 0): MediaCandidate | null {
   return null
 }
 
-function matchesGender(record: Record<string, unknown>, gender: ExerciseVisualGender) {
+function matchesGender(record: Record<string, unknown>, gender: ExerciseVisualGender, allowUnspecified = false) {
   const value = record.gender ?? record.model ?? record.visual_gender
-  return typeof value === 'string' && value.toLowerCase() === gender
+  if (typeof value !== 'string') return allowUnspecified
+  const normalized = value.toLowerCase().trim()
+  return gender === 'female'
+    ? ['female', 'woman', 'women'].includes(normalized)
+    : ['male', 'man', 'men'].includes(normalized)
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -151,9 +157,9 @@ async function fetchMuscleWikiMedia(name: string, gender: ExerciseVisualGender, 
   const searchResponse = await fetchProvider('musclewiki', 'exercise search', searchUrl, { 'X-API-Key': apiKey }, statuses)
   if (!searchResponse?.ok) return null
 
-  const exercise = findExactExercise(getRecords(await readJson(searchResponse)), name)
+  const exercise = findExactExercise(getRecords(await readJson(searchResponse)), name, gender)
   const exerciseId = exercise ? getRecordId(exercise) : null
-  if (!exerciseId) return null
+  if (!exerciseId || !exercise || !matchesGender(exercise, gender)) return null
 
   const videosUrl = new URL(`/exercises/${encodeURIComponent(exerciseId)}/videos`, MUSCLEWIKI_BASE_URL)
   videosUrl.search = new URLSearchParams({ gender }).toString()
@@ -161,7 +167,7 @@ async function fetchMuscleWikiMedia(name: string, gender: ExerciseVisualGender, 
   if (!videosResponse?.ok) return null
 
   for (const video of getRecords(await readJson(videosResponse))) {
-    if (!matchesGender(video, gender)) continue
+    if (!matchesGender(video, gender, true)) continue
     const media = findMediaCandidate(video)
     if (media) return media.url
   }
@@ -174,7 +180,7 @@ async function fetchWorkoutXMedia(name: string, gender: ExerciseVisualGender, ap
   const searchResponse = await fetchProvider('workoutx', 'exercise search', searchUrl, { 'X-WorkoutX-Key': apiKey }, statuses)
   if (!searchResponse?.ok) return null
 
-  const exercise = findExactExercise(getRecords(await readJson(searchResponse)), name)
+  const exercise = findExactExercise(getRecords(await readJson(searchResponse)), name, gender)
   const exerciseId = exercise ? getRecordId(exercise) : null
   if (!exercise || !exerciseId || !matchesGender(exercise, gender)) return null
 
@@ -184,7 +190,7 @@ async function fetchWorkoutXMedia(name: string, gender: ExerciseVisualGender, ap
   if (!mediaResponse?.ok) return null
 
   for (const record of getRecords(await readJson(mediaResponse))) {
-    if (!matchesGender(record, gender)) continue
+    if (!matchesGender(record, gender, true)) continue
     const media = findMediaCandidate(record)
     if (media) return media.url
   }

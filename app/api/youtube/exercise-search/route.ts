@@ -10,6 +10,7 @@ type YouTubeSearchResponse = {
     id?: { videoId?: string }
     snippet?: {
       title?: string
+      description?: string
       channelTitle?: string
       thumbnails?: { medium?: { url?: string } }
     }
@@ -48,12 +49,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Video search is not configured right now.' }, { status: 503 })
   }
 
+  const oppositeGenderTerms = gender === 'male'
+    ? /\b(women|woman|female|girls?|feminine)\b/i
+    : /\b(men|man|male|boys?|masculine)\b/i
+  const exclusionTerms = gender === 'male' ? '-female -women -girl' : '-male -men -boy'
   const params = new URLSearchParams({
     key: apiKey,
     part: 'snippet',
-    q: `${gender} ${exercise} exercise demonstration proper form`,
+    q: `${gender} ${exercise} exercise demonstration proper form ${exclusionTerms}`,
     type: 'video',
-    maxResults: '5',
+    maxResults: '10',
     safeSearch: 'strict',
     videoEmbeddable: 'true',
   })
@@ -72,9 +77,10 @@ export async function GET(request: Request) {
       const videoId = item.id?.videoId
       const title = item.snippet?.title
       const channelTitle = item.snippet?.channelTitle
-      if (!videoId || !/^[\w-]{11}$/.test(videoId) || !title || !channelTitle) return []
+      const description = item.snippet?.description ?? ''
+      if (!videoId || !/^[\w-]{11}$/.test(videoId) || !title || !channelTitle || oppositeGenderTerms.test(`${title} ${description}`)) return []
       return [{ videoId, title, channelTitle, thumbnailUrl: getSafeThumbnailUrl(item.snippet?.thumbnails?.medium?.url) }]
-    })
+    }).slice(0, 5)
 
     return NextResponse.json({ videos }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch {
