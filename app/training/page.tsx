@@ -6,8 +6,8 @@ import type { ActiveWorkoutState } from '@/app/actions/fitness'
 import { TrainingRoute } from '@/components/training-route'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { fitnessCheckins, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
-import { buildWorkoutPlan, type FitnessProfile, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type TrainingEnvironment } from '@/lib/fitness-data'
+import { fitnessCheckins, fitnessCustomRoutines, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { activePlanId, buildCustomRoutinePlan, buildWorkoutPlan, type FitnessProfile, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type TrainingEnvironment } from '@/lib/fitness-data'
 
 export const metadata: Metadata = {
   title: 'Training session | FitPilot',
@@ -46,14 +46,25 @@ export default async function TrainingPage() {
 
   let activeWorkout: ActiveWorkoutState | null = null
   if (activeSession) {
-    const savedSets = await db.select().from(workoutSets)
-      .where(and(eq(workoutSets.sessionId, activeSession.id), eq(workoutSets.userId, userId)))
-      .orderBy(asc(workoutSets.setNumber))
+    const [savedSets, [activePlan]] = await Promise.all([
+      db.select().from(workoutSets)
+        .where(and(eq(workoutSets.sessionId, activeSession.id), eq(workoutSets.userId, userId)))
+        .orderBy(asc(workoutSets.setNumber)),
+      db.select().from(fitnessCustomRoutines).where(and(
+        eq(fitnessCustomRoutines.id, activePlanId(userId)),
+        eq(fitnessCustomRoutines.userId, userId),
+      )).limit(1),
+    ])
+    const customPlan = activeSession.sessionName === activePlan?.name ? buildCustomRoutinePlan(activePlan) : []
+    const planLetter = /^Full-body strength ([A-Z])$/.exec(activeSession.sessionName)?.[1]
+    const rotationIndex = planLetter ? planLetter.charCodeAt(0) - 'A'.charCodeAt(0) : 0
+    const exercises = customPlan.length ? customPlan : buildWorkoutPlan(profile, rotationIndex)
+
     activeWorkout = {
       id: activeSession.id,
       sessionName: activeSession.sessionName,
       startedAt: activeSession.startedAt.toISOString(),
-      exercises: buildWorkoutPlan(profile).map((exercise) => ({
+      exercises: exercises.map((exercise) => ({
         ...exercise,
         workoutSets: savedSets.filter((set) => set.exerciseId === exercise.id).map((set) => ({
           id: set.id,
