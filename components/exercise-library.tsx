@@ -9,13 +9,11 @@ import { bodyAreas, type BodyArea, type ExerciseVisualGender, type PlannedExerci
 
 type ExerciseCollection = 'plan' | 'all'
 
-export function ExerciseLibrary({ exercises, visualGender: controlledVisualGender, onVisualGenderChange, initialVisualGender = 'male', initialCollection = 'plan' }: { exercises: PlannedExercise[]; visualGender?: ExerciseVisualGender; onVisualGenderChange?: (gender: ExerciseVisualGender) => void; initialVisualGender?: ExerciseVisualGender; initialCollection?: ExerciseCollection }) {
+export function ExerciseLibrary({ exercises, visualGender: accountVisualGender, initialVisualGender = 'male', initialCollection = 'plan' }: { exercises: PlannedExercise[]; visualGender?: ExerciseVisualGender; initialVisualGender?: ExerciseVisualGender; initialCollection?: ExerciseCollection }) {
   const [selectedCollection, setSelectedCollection] = useState<ExerciseCollection>(initialCollection)
   const [selectedArea, setSelectedArea] = useState<BodyArea>('full-body')
   const [searchQuery, setSearchQuery] = useState('')
-  const [localVisualGender, setLocalVisualGender] = useState<ExerciseVisualGender>(initialVisualGender)
-  const visualGender = controlledVisualGender ?? localVisualGender
-  const changeVisualGender = onVisualGenderChange ?? setLocalVisualGender
+  const visualGender = accountVisualGender ?? initialVisualGender
   const plannedById = new Map(exercises.map((exercise) => [exercise.id, exercise]))
   const areaExercises = selectedArea === 'full-body' ? exercises : exercises.filter((exercise) => exercise.areas.includes(selectedArea))
   const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -34,7 +32,7 @@ export function ExerciseLibrary({ exercises, visualGender: controlledVisualGende
     return (
       <div className="exercise-library-wrap">
         {collectionPicker}
-        <ExerciseDbBrowser gender={visualGender} onVisualGenderChange={changeVisualGender} />
+        <ExerciseDbBrowser gender={visualGender} />
       </div>
     )
   }
@@ -51,7 +49,7 @@ export function ExerciseLibrary({ exercises, visualGender: controlledVisualGende
         })}
       </div>
       <label className="exercise-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search planned exercises by name, focus, or equipment</span><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search your plan" /></label>
-      <div className="library-results-heading"><div><p className="eyebrow">YOUR PERSONALIZED PLAN</p><h2>{collectionTitle}</h2></div><ExerciseVisualGenderToggle gender={visualGender} onChange={changeVisualGender} /></div>
+      <div className="library-results-heading"><div><p className="eyebrow">YOUR PERSONALIZED PLAN</p><h2>{collectionTitle}</h2></div><ExerciseVisualGenderToggle gender={visualGender} /></div>
       <div className="exercise-library">
         {visibleExercises.length === 0 && <p className="exercise-empty-state" role="status">No planned exercises match that search.</p>}
         {visibleExercises.map((exercise, index) => {

@@ -6,8 +6,8 @@ import { headers } from 'next/headers'
 import { and, asc, count, desc, eq, gte, like, lt, or } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { fitnessCheckins, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
-import { activityLevels, buildWorkoutPlan, calculateBodyMetrics, genderOptions, goals, experienceLevels, nextExperienceLevel, trainingEnvironments, weeklySessionTarget, type ActivityLevel, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
+import { fitnessCheckins, fitnessCustomRoutines, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { activePlanId, buildCustomRoutinePlan, activityLevels, buildWorkoutPlan, calculateBodyMetrics, genderOptions, goals, experienceLevels, nextExperienceLevel, trainingEnvironments, weeklySessionTarget, type ActivityLevel, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
 
 export type OnboardingInput = {
   name: string
@@ -144,6 +144,11 @@ export async function startWorkout(input: { weightKg: number; reflection: string
   weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7))
   const nextWeekStart = new Date(weekStart)
   nextWeekStart.setUTCDate(nextWeekStart.getUTCDate() + 7)
+  const [activePlan] = await db.select().from(fitnessCustomRoutines).where(and(
+    eq(fitnessCustomRoutines.id, activePlanId(userId)),
+    eq(fitnessCustomRoutines.userId, userId),
+  )).limit(1)
+
   const [weeklyCount] = await db.select({ total: count() }).from(workoutSessions).where(and(
     eq(workoutSessions.userId, userId),
     eq(workoutSessions.status, 'completed'),
@@ -151,10 +156,11 @@ export async function startWorkout(input: { weightKg: number; reflection: string
     lt(workoutSessions.startedAt, nextWeekStart),
   ))
   const workoutIndex = Number(weeklyCount?.total ?? 0)
-  const plan = buildWorkoutPlan(profile, workoutIndex)
+  const plan = buildCustomRoutinePlan(activePlan) ?? []
+  const selectedPlan = plan.length ? plan : buildWorkoutPlan(profile, workoutIndex)
   const sessionId = randomUUID()
-  const sessionName = `Full-body strength ${String.fromCharCode(65 + (workoutIndex % 3))}`
-  const planned = plan.map((exercise) => ({
+  const sessionName = plan.length ? activePlan?.name ?? 'Custom workout' : `Full-body strength ${String.fromCharCode(65 + (workoutIndex % 3))}`
+  const planned = selectedPlan.map((exercise) => ({
     ...exercise,
     workoutSets: Array.from({ length: exercise.sets }, (_, index) => ({
       id: randomUUID(),

@@ -1,6 +1,9 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { fitnessProfiles } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import type { ExerciseMediaResponse, ExerciseMediaSource } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
@@ -12,7 +15,13 @@ const API_NINJAS_BASE_URL = 'https://api.api-ninjas.com'
 type ProviderStatus = {
   provider: ExerciseMediaSource
   stage: string
-  status: number | 'network_error' | 'not_configured'
+  status: number | 'network_error' | 'not_configured' | 'excluded'
+}
+
+const mediaProviderSources: ExerciseMediaSource[] = ['musclewiki', 'workoutx', 'exercisedb', 'ninjas']
+
+function parseExcludedSources(value: string | null) {
+  return new Set((value ?? '').split(',').filter((source): source is ExerciseMediaSource => mediaProviderSources.includes(source as ExerciseMediaSource)))
 }
 
 type ProviderResponse = ExerciseMediaResponse
@@ -106,7 +115,7 @@ function findMediaCandidate(value: unknown, depth = 0): MediaCandidate | null {
 
 function matchesGender(record: Record<string, unknown>, gender: ExerciseVisualGender) {
   const value = record.gender ?? record.model ?? record.visual_gender
-  return typeof value !== 'string' || value.toLowerCase() === gender
+  return typeof value === 'string' && value.toLowerCase() === gender
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -125,7 +134,7 @@ async function fetchProvider(
   statuses: ProviderStatus[],
 ) {
   try {
-    const response = await fetch(url, { headers: apiHeaders, cache: 'no-store' })
+    const response = await fetch(url, { headers: apiHeaders, cache: 'no-store', signal: AbortSignal.timeout(8_000) })
     statuses.push({ provider, stage, status: response.status })
     console.log(`[v0] /api/media ${provider} ${stage} HTTP ${response.status}`)
     return response
@@ -175,6 +184,7 @@ async function fetchWorkoutXMedia(name: string, gender: ExerciseVisualGender, ap
   if (!mediaResponse?.ok) return null
 
   for (const record of getRecords(await readJson(mediaResponse))) {
+    if (!matchesGender(record, gender)) continue
     const media = findMediaCandidate(record)
     if (media) return media.url
   }
@@ -225,22 +235,26 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams
   const rawName = searchParams.get('name') ?? ''
   const name = normalizeExerciseName(rawName)
-  const gender = searchParams.get('gender')
   if (name.length < 2 || name.length > 80) {
     return NextResponse.json({ error: 'Enter an exercise name between 2 and 80 characters.' }, { status: 400 })
   }
-  if (gender !== 'male' && gender !== 'female') {
-    return NextResponse.json({ error: 'Choose male or female exercise visuals.' }, { status: 400 })
-  }
+
+  const [profile] = await db.select({ gender: fitnessProfiles.gender }).from(fitnessProfiles)
+    .where(eq(fitnessProfiles.userId, session.user.id)).limit(1)
+  if (!profile) return NextResponse.json({ error: 'Complete your profile before viewing exercise demonstrations.' }, { status: 403 })
+  const gender: ExerciseVisualGender = profile.gender === 'woman' ? 'female' : 'male'
 
   const muscleWikiKey = process.env.MUSCLEWIKI_API_KEY
   const workoutXKey = process.env.WORKOUTX_API_KEY ?? process.env.WORKOUTX_KEY
   const exerciseDbKey = process.env.RAPIDAPI_EXERCISE_KEY
   const ninjasKey = process.env.NINJAS_API_KEY
   const statuses: ProviderStatus[] = []
+  const excludedSources = parseExcludedSources(searchParams.get('exclude'))
   let result: ProviderResponse | null = null
 
-  if (muscleWikiKey) {
+  if (excludedSources.has('musclewiki')) {
+    statuses.push({ provider: 'musclewiki', stage: 'skipped after playback failure', status: 'excluded' })
+  } else if (muscleWikiKey) {
     const videoUrl = await fetchMuscleWikiMedia(name, gender as ExerciseVisualGender, muscleWikiKey, statuses)
     if (videoUrl) result = { videoUrl, source: 'musclewiki', mediaType: getVideoMediaType(videoUrl) }
   } else {
@@ -248,7 +262,9 @@ export async function GET(request: Request) {
     console.log('[v0] /api/media MuscleWiki not configured')
   }
 
-  if (!result && workoutXKey) {
+  if (!result && excludedSources.has('workoutx')) {
+    statuses.push({ provider: 'workoutx', stage: 'skipped after playback failure', status: 'excluded' })
+  } else if (!result && workoutXKey) {
     const videoUrl = await fetchWorkoutXMedia(name, gender as ExerciseVisualGender, workoutXKey, statuses)
     if (videoUrl) result = { videoUrl, source: 'workoutx', mediaType: getVideoMediaType(videoUrl) }
   } else if (!result) {
@@ -256,7 +272,9 @@ export async function GET(request: Request) {
     console.log('[v0] /api/media WorkoutX not configured')
   }
 
-  if (!result && exerciseDbKey) {
+  if (!result && excludedSources.has('exercisedb')) {
+    statuses.push({ provider: 'exercisedb', stage: 'skipped after playback failure', status: 'excluded' })
+  } else if (!result && exerciseDbKey) {
     const videoUrl = await fetchExerciseDbMedia(name, exerciseDbKey, statuses)
     if (videoUrl) result = { videoUrl, source: 'exercisedb', mediaType: 'gif' }
   } else if (!result) {
@@ -264,7 +282,9 @@ export async function GET(request: Request) {
     console.log('[v0] /api/media ExerciseDB not configured')
   }
 
-  if (!result && ninjasKey) {
+  if (!result && excludedSources.has('ninjas')) {
+    statuses.push({ provider: 'ninjas', stage: 'skipped after playback failure', status: 'excluded' })
+  } else if (!result && ninjasKey) {
     const media = await fetchApiNinjasMedia(name, ninjasKey, statuses)
     if (media) result = { ...media, source: 'ninjas', mediaType: 'image' }
   } else if (!result) {
@@ -281,7 +301,7 @@ export async function GET(request: Request) {
   const hasProviderFailure = statuses.some(({ status }) => status === 'network_error' || (typeof status === 'number' && (status < 200 || status >= 300)))
   const status = !anyConfigured ? 503 : hasProviderFailure ? 502 : 404
   const message = status === 404
-    ? 'No video or animation was found for this exercise.'
+    ? 'No exercise animation is available for this movement.'
     : status === 503
       ? 'Exercise media is not configured right now.'
       : 'Exercise media providers are temporarily unavailable.'

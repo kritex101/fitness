@@ -28,7 +28,7 @@ const restStartCues = [
 
 type PlayerStage = 'checkin' | 'tutorial' | 'ready' | 'active' | 'rest' | 'all-done' | 'finished'
 type TimerKind = 'work' | 'rest'
-type TimerState = { id: number; kind: TimerKind; seconds: number; paused: boolean; endsAt: number }
+type TimerState = { id: number; kind: TimerKind; seconds: number; durationSeconds: number; paused: boolean; endsAt: number }
 type SetPosition = { exerciseIndex: number; setIndex: number }
 
 function getNextSetPosition(workout: ActiveWorkoutState | null): SetPosition | null {
@@ -55,6 +55,28 @@ function getTutor(gender: ExerciseVisualGender) {
   return { name: 'Maya', label: 'Female demo visuals', image: '/coaches/coach-woman.png', alt: 'Maya demonstrating exercise movements in a bright training studio.' }
 }
 
+function playRestChime() {
+  if (typeof window === 'undefined' || !window.AudioContext) return
+  const context = new window.AudioContext()
+  void context.resume().then(() => {
+    ;[660, 880].forEach((frequency, index) => {
+      const startAt = context.currentTime + index * 0.18
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.value = frequency
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(0.13, startAt + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.2)
+      oscillator.connect(gain)
+      gain.connect(context.destination)
+      oscillator.start(startAt)
+      oscillator.stop(startAt + 0.21)
+    })
+    window.setTimeout(() => { void context.close() }, 700)
+  }).catch(() => { void context.close() })
+}
+
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60)
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
@@ -63,7 +85,6 @@ function formatTime(seconds: number) {
 export function WorkoutFlow({
   profile,
   visualGender,
-  onVisualGenderChange,
   initialWeightKg,
   initialWorkout,
   onClose,
@@ -73,7 +94,6 @@ export function WorkoutFlow({
 }: {
   profile: FitnessProfile
   visualGender: ExerciseVisualGender
-  onVisualGenderChange: (gender: ExerciseVisualGender) => void
   initialWeightKg: number
   initialWorkout: ActiveWorkoutState | null
   onClose: () => void
@@ -164,7 +184,7 @@ export function WorkoutFlow({
   function startTimer(kind: TimerKind, seconds: number, onFinish: () => void) {
     timerSequence.current += 1
     timerFinished.current = onFinish
-    setTimer({ id: timerSequence.current, kind, seconds, paused: false, endsAt: Date.now() + seconds * 1000 })
+    setTimer({ id: timerSequence.current, kind, seconds, durationSeconds: seconds, paused: false, endsAt: Date.now() + seconds * 1000 })
   }
 
   function toggleTimer() {
@@ -270,6 +290,7 @@ export function WorkoutFlow({
       const recoveryCue = restStartCues[Math.floor(Math.random() * restStartCues.length)]
       speakText(`${recoveryCue} Take ${currentExercise.restSeconds} seconds to recover. Next up: ${nextExercise.name}.`)
       startTimer('rest', currentExercise.restSeconds, () => {
+        playRestChime()
         speakText(`${nextExercise.name} is up next. Move into position when you are ready.`)
         setStage(restStage)
       })
@@ -319,7 +340,7 @@ export function WorkoutFlow({
         <div className="session-progress-track"><span style={{ width: `${(completedCount / Math.max(allSets.length, 1)) * 100}%` }} /></div>
         {stage === 'all-done' && <div className="player-complete-state"><span className="finish-check"><Check size={24} /></span><p>Every set is logged. Take a breath, then save your session.</p><button type="button" className="primary-button dialog-primary" disabled={busy} onClick={finishSession}>{busy ? 'Saving session…' : 'Complete workout'} <ArrowRight size={17} /></button></div>}
         {currentExercise && currentSet && stage !== 'all-done' && <>
-          <div className="player-title-row"><div><p className="eyebrow">MOVEMENT {currentStepNumber} OF {totalSteps} <span className="player-dot" /> SET {currentSet.setNumber} OF {currentExercise.workoutSets.length}</p><h3>{currentExercise.name}</h3><p>{currentExercise.focus} · {currentExercise.equipment}</p></div><div className="player-media-controls"><ExerciseVisualGenderToggle gender={visualGender} onChange={onVisualGenderChange} compact /><span className="coach-match-pill">{tutor.label}</span></div></div>
+          <div className="player-title-row"><div><p className="eyebrow">MOVEMENT {currentStepNumber} OF {totalSteps} <span className="player-dot" /> SET {currentSet.setNumber} OF {currentExercise.workoutSets.length}</p><h3>{currentExercise.name}</h3><p>{currentExercise.focus} · {currentExercise.equipment}</p></div><div className="player-media-controls"><ExerciseVisualGenderToggle gender={visualGender} compact /><span className="coach-match-pill">{tutor.label}</span></div></div>
           <div className={`trainer-screen ${stage === 'rest' ? 'trainer-screen-rest' : ''}`}>
             <Image src={tutor.image} alt={tutor.alt} width={960} height={720} className="trainer-photo" priority />
             <div className="trainer-scrim" />
@@ -352,6 +373,7 @@ export function WorkoutFlow({
           {error && <p className="form-error" role="alert">{error}</p>}
         </>}
       </div>}
+      {timer?.kind === 'rest' && currentExercise && <div className="rest-timer-modal-backdrop" role="presentation"><section className="rest-timer-modal" role="dialog" aria-modal="true" aria-labelledby="rest-timer-heading"><span className="eyebrow">RECOVERY INTERVAL</span><h2 id="rest-timer-heading">Rest and reset</h2><p>Next up: <strong>{currentExercise.name}</strong></p><div className="rest-countdown-ring" role="timer" aria-label={`${timer.seconds} seconds remaining`}><svg viewBox="0 0 160 160" aria-hidden="true"><circle className="rest-ring-track" cx="80" cy="80" r="67" /><circle className="rest-ring-progress" cx="80" cy="80" r="67" style={{ strokeDasharray: `${2 * Math.PI * 67}`, strokeDashoffset: `${2 * Math.PI * 67 * (1 - timer.seconds / timer.durationSeconds)}` }} /></svg><strong>{formatTime(timer.seconds)}</strong></div><div className="rest-timer-actions"><button type="button" className="secondary-button" onClick={toggleTimer}>{timer.paused ? <Play size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}{timer.paused ? 'Resume' : 'Pause'}</button><button type="button" className="primary-button" onClick={skipRest}><SkipForward size={15} aria-hidden="true" /> Skip rest</button></div></section></div>}
       {stage === 'finished' && <div className="workout-finished"><span className="finish-check"><Check size={24} /></span><p role="status">{levelUp ? `You completed this week’s training goal and advanced to ${labelForExperience(levelUp)}. Your updated plan is ready.` : alreadyAdvancedThisWeek ? 'Your session is saved. You have already advanced this week; you can unlock another level in a future training week.' : 'Your session is saved. Strength, consistency, and how you feel all count as progress.'}</p><button type="button" className="primary-button dialog-primary" onClick={closePlayer}>Back to overview <ArrowRight size={17} /></button></div>}
     </section>
   </div>

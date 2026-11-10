@@ -19,7 +19,7 @@ async function fetchExercisePage(url: string): Promise<ExerciseDbExercise[]> {
   return Array.isArray(payload.exercises) ? payload.exercises : []
 }
 
-export function ExerciseDbBrowser({ gender, onVisualGenderChange }: { gender: ExerciseVisualGender; onVisualGenderChange: (gender: ExerciseVisualGender) => void }) {
+export function ExerciseDbBrowser({ gender }: { gender: ExerciseVisualGender }) {
   const [selectedTarget, setSelectedTarget] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [submittedName, setSubmittedName] = useState('')
@@ -81,7 +81,7 @@ export function ExerciseDbBrowser({ gender, onVisualGenderChange }: { gender: Ex
         {exerciseDbTargets.map((target) => <button className={`exercise-db-target-option ${selectedTarget === target.value ? 'exercise-db-target-selected' : ''}`} type="button" key={target.value} aria-pressed={selectedTarget === target.value} onClick={() => selectTarget(target.value)}>{target.label}</button>)}
       </div>
 
-      <div className="library-results-heading"><div><p className="eyebrow">EXERCISEDB CATALOG</p><h2>{resultsTitle}</h2></div><div className="exercise-db-result-tools"><p className="exercise-db-result-count">{exercises.length ? `${exercises.length} loaded` : 'Search by name or target'}</p><ExerciseVisualGenderToggle gender={gender} onChange={onVisualGenderChange} /></div></div>
+      <div className="library-results-heading"><div><p className="eyebrow">EXERCISEDB CATALOG</p><h2>{resultsTitle}</h2></div><div className="exercise-db-result-tools"><p className="exercise-db-result-count">{exercises.length ? `${exercises.length} loaded` : 'Search by name or target'}</p><ExerciseVisualGenderToggle gender={gender} /></div></div>
 
       {isLoading && <p className="exercise-db-status" role="status"><LoaderCircle size={17} aria-hidden="true" /> Loading ExerciseDB exercises…</p>}
       {error && <div className="exercise-db-error" role="alert"><p>{error.message}</p><button type="button" onClick={() => { void mutate() }}>Try again</button></div>}

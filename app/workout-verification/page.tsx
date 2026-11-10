@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { WorkoutFlow } from '@/components/workout-flow'
 import { buildWorkoutPlan, type FitnessProfile } from '@/lib/fitness-data'
 import type { ActiveWorkoutState } from '@/app/actions/fitness'
@@ -52,13 +51,12 @@ if (typeof window !== 'undefined') {
 }
 
 export default function WorkoutVerificationPage() {
-  const [visualGender, setVisualGender] = useState<'male' | 'female'>('female')
+  const visualGender = 'female' as const
 
   return <WorkoutFlow
     standalone
     profile={profile}
     visualGender={visualGender}
-    onVisualGenderChange={setVisualGender}
     initialWeightKg={profile.weightKg}
     initialWorkout={initialWorkout}
     onClose={() => { window.location.href = '/' }}

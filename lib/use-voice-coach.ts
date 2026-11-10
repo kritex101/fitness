@@ -13,6 +13,13 @@ const voiceNameMatchers: Record<ExerciseVisualGender, RegExp> = {
   male: /\b(male|man|david|daniel|mark|alex|fred|jorge|rishi|liam)\b/i,
 }
 
+function selectedVoice(voices: SpeechSynthesisVoice[], preferences: { voiceURI: string; voiceName: string; voiceLang: string }) {
+  return voices.find((voice) => (
+    (preferences.voiceURI && voice.voiceURI === preferences.voiceURI)
+    || (preferences.voiceName && voice.name === preferences.voiceName && voice.lang === preferences.voiceLang)
+  ))
+}
+
 function preferredVoice(voices: SpeechSynthesisVoice[], gender: ExerciseVisualGender) {
   if (voices.length === 0) return undefined
 
@@ -85,7 +92,8 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
 
       const readySynthesis = window.speechSynthesis
       if (!readySynthesis || typeof readySynthesis.cancel !== 'function' || typeof readySynthesis.speak !== 'function' || typeof readySynthesis.getVoices !== 'function') return
-      const voice = voices.find((item) => item.voiceURI === preferences.voice.voiceURI) ?? preferredVoice(readySynthesis.getVoices(), gender)
+      const availableVoices = readySynthesis.getVoices()
+      const voice = selectedVoice(availableVoices, preferences.voice) ?? selectedVoice(voices, preferences.voice) ?? preferredVoice(availableVoices.length ? availableVoices : voices, gender)
       const utterances = sentences.map((sentence) => {
         const utterance = new SpeechSynthesisUtterance(sentence)
         if (voice) {
@@ -129,7 +137,8 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
     const synthesis = window.speechSynthesis
     if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function') return
     stop()
-    const voice = voices.find((item) => item.voiceURI === preferences.voice.voiceURI) ?? preferredVoice(synthesis.getVoices(), gender)
+    const availableVoices = synthesis.getVoices()
+    const voice = selectedVoice(availableVoices, preferences.voice) ?? selectedVoice(voices, preferences.voice) ?? preferredVoice(availableVoices.length ? availableVoices : voices, gender)
     const utterance = new SpeechSynthesisUtterance('Your next set starts now. Keep your movement steady and breathe.')
     if (voice) {
       utterance.voice = voice

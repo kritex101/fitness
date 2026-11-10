@@ -4,6 +4,16 @@ import { Headphones, Play, Sun } from 'lucide-react'
 import { useVoiceCoach } from '@/lib/use-voice-coach'
 import { useAppSettings, type ThemePreference } from '@/components/app-settings-provider'
 
+function getVoiceAccent(lang: string) {
+  if (!lang) return 'Accent not reported'
+  try {
+    const region = new Intl.Locale(lang).region
+    return region ? new Intl.DisplayNames(['en'], { type: 'region' }).of(region) ?? lang : new Intl.DisplayNames(['en'], { type: 'language' }).of(lang) ?? lang
+  } catch {
+    return lang
+  }
+}
+
 const themeOptions: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
@@ -13,7 +23,11 @@ const themeOptions: { value: ThemePreference; label: string }[] = [
 export function SettingsControls({ idPrefix }: { idPrefix: string }) {
   const { preferences, voices, speechSupported, setTheme, updateVoice } = useAppSettings()
   const { testVoice } = useVoiceCoach({ gender: 'female' })
-  const selectedVoiceAvailable = voices.some((voice) => voice.voiceURI === preferences.voice.voiceURI)
+  const selectedVoice = voices.find((voice) => (
+    (preferences.voice.voiceURI && voice.voiceURI === preferences.voice.voiceURI)
+    || (preferences.voice.voiceName === voice.name && preferences.voice.voiceLang === voice.lang)
+  ))
+  const selectedVoiceIndex = selectedVoice ? voices.indexOf(selectedVoice) : -1
 
   return <div className="settings-controls">
     <section className="settings-group" aria-labelledby={`${idPrefix}-appearance-heading`}>
@@ -28,10 +42,12 @@ export function SettingsControls({ idPrefix }: { idPrefix: string }) {
       <label className="settings-switch" htmlFor={`${idPrefix}-voice-enabled`}><span><strong>Voice Coach</strong><small>Read countdowns and exercise instructions aloud.</small></span><input id={`${idPrefix}-voice-enabled`} type="checkbox" role="switch" checked={preferences.voice.enabled} onChange={(event) => updateVoice({ enabled: event.target.checked })} disabled={!speechSupported} /></label>
       {!speechSupported && <p className="settings-note" role="status">Speech synthesis is not available in this browser.</p>}
       {speechSupported && voices.length === 0 && <p className="settings-note" role="status">No system voice list is available yet. Automatic voice will use your browser&apos;s default.</p>}
-      <label className="settings-field" htmlFor={`${idPrefix}-voice`}><span><strong>Voice</strong><small>Available voices depend on your browser and device.</small></span><select id={`${idPrefix}-voice`} value={preferences.voice.voiceURI} onChange={(event) => updateVoice({ voiceURI: event.target.value })} disabled={!speechSupported}>
+      <label className="settings-field" htmlFor={`${idPrefix}-voice`}><span><strong>Voice</strong><small>Only voices currently provided by this browser are listed.</small></span><select id={`${idPrefix}-voice`} value={selectedVoiceIndex < 0 ? '' : String(selectedVoiceIndex)} onChange={(event) => {
+        const voice = voices[Number(event.target.value)]
+        updateVoice({ voiceURI: voice?.voiceURI ?? '', voiceName: voice?.name ?? '', voiceLang: voice?.lang ?? '' })
+      }} disabled={!speechSupported}>
         <option value="">Automatic voice</option>
-        {preferences.voice.voiceURI && !selectedVoiceAvailable && <option value={preferences.voice.voiceURI} disabled>Saved voice unavailable on this device</option>}
-        {voices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} · {voice.lang}{voice.localService ? '' : ' · online'}</option>)}
+        {voices.map((voice, index) => <option key={`${voice.voiceURI}-${index}`} value={String(index)}>{voice.name} · {voice.lang || 'Language not reported'} · {getVoiceAccent(voice.lang)}{voice.localService ? '' : ' · online'}</option>)}
       </select></label>
 
       <div className="settings-range-list">

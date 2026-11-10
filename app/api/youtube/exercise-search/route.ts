@@ -1,6 +1,9 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { fitnessProfiles } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 type YouTubeSearchResponse = {
   items?: Array<{
@@ -31,13 +34,14 @@ export async function GET(request: Request) {
 
   const searchParams = new URL(request.url).searchParams
   const exercise = searchParams.get('q')?.trim().replace(/\s+/g, ' ')
-  const gender = searchParams.get('gender') ?? 'male'
   if (!exercise || exercise.length < 2 || exercise.length > 80) {
     return NextResponse.json({ error: 'Enter an exercise name between 2 and 80 characters.' }, { status: 400 })
   }
-  if (gender !== 'male' && gender !== 'female') {
-    return NextResponse.json({ error: 'Choose male or female exercise visuals.' }, { status: 400 })
-  }
+
+  const [profile] = await db.select({ gender: fitnessProfiles.gender }).from(fitnessProfiles)
+    .where(eq(fitnessProfiles.userId, session.user.id)).limit(1)
+  if (!profile) return NextResponse.json({ error: 'Complete your profile before searching for exercise videos.' }, { status: 403 })
+  const gender = profile.gender === 'woman' ? 'female' : 'male'
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) {

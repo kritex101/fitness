@@ -1,4 +1,5 @@
-import { boolean, integer, numeric, pgTable, smallint, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import { boolean, integer, jsonb, numeric, pgTable, smallint, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import type { CustomRoutineExercise } from '@/lib/fitness-data'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -105,3 +106,12 @@ export const workoutSets = pgTable('workout_sets', {
   completed: boolean('completed').notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [unique().on(table.sessionId, table.exerciseId, table.setNumber)])
+
+export const fitnessCustomRoutines = pgTable('fitness_custom_routines', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  exercises: jsonb('exercises').$type<CustomRoutineExercise[]>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
