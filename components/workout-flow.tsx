@@ -10,6 +10,21 @@ import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-
 import { useVoiceCoach } from '@/lib/use-voice-coach'
 
 const WORK_SECONDS = 40
+const midIntervalCues = [
+  'You are halfway there. Stay smooth and keep breathing.',
+  'Strong pace. Keep every rep controlled.',
+  'Halfway through. Nice work holding your form.',
+]
+const final10SecCues = [
+  'Final ten seconds. Stay steady and finish with control.',
+  'Ten seconds to go. One breath and one smooth rep at a time.',
+  'Strong finish. Keep your form through these last ten seconds.',
+]
+const restStartCues = [
+  'Good work. Let your breathing settle and recover at your pace.',
+  'Take a calm breath and reset before the next effort.',
+  'You earned this recovery. Relax your shoulders and breathe.',
+]
 
 type PlayerStage = 'checkin' | 'tutorial' | 'ready' | 'active' | 'rest' | 'all-done' | 'finished'
 type TimerKind = 'work' | 'rest'
@@ -82,6 +97,8 @@ export function WorkoutFlow({
   const [tutorialHasPlayed, setTutorialHasPlayed] = useState(false)
   const timerSequence = useRef(0)
   const timerFinished = useRef<(() => void) | null>(null)
+  const workCueTimerId = useRef<number | null>(null)
+  const workCuesSpoken = useRef({ midpoint: false, final10: false })
   const tutor = getTutor(visualGender)
   const currentExercise = position && workout ? workout.exercises[position.exerciseIndex] : null
   const currentSet = currentExercise && position ? currentExercise.workoutSets[position.setIndex] : null
@@ -117,6 +134,25 @@ export function WorkoutFlow({
     }, 200)
     return () => window.clearInterval(intervalId)
   }, [timerId, timerPaused])
+
+  useEffect(() => {
+    if (!timer || timer.kind !== 'work') return
+
+    if (workCueTimerId.current !== timer.id) {
+      workCueTimerId.current = timer.id
+      workCuesSpoken.current = { midpoint: false, final10: false }
+    }
+    if (timer.paused) return
+
+    if (!workCuesSpoken.current.midpoint && timer.seconds <= WORK_SECONDS / 2 && timer.seconds > 10) {
+      workCuesSpoken.current.midpoint = true
+      speakText(midIntervalCues[Math.floor(Math.random() * midIntervalCues.length)])
+    }
+    if (!workCuesSpoken.current.final10 && timer.seconds <= 10 && timer.seconds > 0) {
+      workCuesSpoken.current.final10 = true
+      speakText(final10SecCues[Math.floor(Math.random() * final10SecCues.length)])
+    }
+  }, [timer, speakText])
 
   useEffect(() => {
     if (timer || !timerFinished.current) return
@@ -231,9 +267,10 @@ export function WorkoutFlow({
       setPosition(nextPosition)
       setAfterRestStage(restStage)
       setStage('rest')
-      speakText(`Take ${currentExercise.restSeconds} seconds to recover.`)
+      const recoveryCue = restStartCues[Math.floor(Math.random() * restStartCues.length)]
+      speakText(`${recoveryCue} Take ${currentExercise.restSeconds} seconds to recover. Next up: ${nextExercise.name}.`)
       startTimer('rest', currentExercise.restSeconds, () => {
-        speakText('Rest complete. You are ready for the next set.')
+        speakText(`${nextExercise.name} is up next. Move into position when you are ready.`)
         setStage(restStage)
       })
     } catch (cause) {
