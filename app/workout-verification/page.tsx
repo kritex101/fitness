@@ -38,10 +38,13 @@ const initialWorkout: ActiveWorkoutState = {
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
-    if (typeof input === 'string' && input.startsWith('/api/exercises/media')) {
-      return new Response(JSON.stringify({ media: [], unavailableSources: [] }), {
+    if (typeof input === 'string' && input.startsWith('/api/media')) {
+      return new Response(JSON.stringify({ videoUrl: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', source: 'exercisedb' }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Media-Provider-Statuses': JSON.stringify([{ provider: 'exercisedb', stage: 'GIF lookup', status: 200 }]),
+        },
       })
     }
     return originalFetch(input, init)
