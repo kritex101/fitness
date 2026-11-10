@@ -5,8 +5,8 @@ import { FitnessOnboarding } from '@/components/fitness-onboarding'
 import { FitPilotDashboard } from '@/components/fitpilot-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { fitnessCheckins, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
-import { buildWorkoutPlan, type FitnessProfile, type GenderIdentity, type FitnessGoal, type ExperienceLevel, type TrainingEnvironment } from '@/lib/fitness-data'
+import { fitnessCheckins, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { buildWorkoutPlan, type ActivityLevel, type FitnessProfile, type GenderIdentity, type FitnessGoal, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
 
 export default async function Page() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -28,10 +28,11 @@ export default async function Page() {
     environment: profileRow.environment as TrainingEnvironment,
   }
 
-  const [checkinRows, sessionRows, activeRow] = await Promise.all([
-    db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)).limit(12),
-    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)).limit(12),
+  const [checkinRows, sessionRows, activeRow, metricRows] = await Promise.all([
+    db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)),
+    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)),
     db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress'))).orderBy(desc(workoutSessions.startedAt)).limit(1),
+    db.select().from(fitnessMetricSnapshots).where(eq(fitnessMetricSnapshots.userId, userId)).orderBy(desc(fitnessMetricSnapshots.createdAt)).limit(90),
   ])
 
   let activeWorkout = null
@@ -63,6 +64,17 @@ export default async function Page() {
     profile={profile}
     checkins={checkinRows.map((row) => ({ id: row.id, weightKg: Number(row.weightKg), reflection: row.reflection, createdAt: row.createdAt.toISOString() }))}
     sessions={sessionRows.map((row) => ({ id: row.id, sessionName: row.sessionName, status: row.status, startedAt: row.startedAt.toISOString(), endedAt: row.endedAt?.toISOString() ?? null }))}
+    metrics={metricRows.map((row): MetricSnapshot => ({
+      id: row.id,
+      weightKg: Number(row.weightKg),
+      heightCm: Number(row.heightCm),
+      age: row.age,
+      gender: row.gender as GenderIdentity,
+      activityLevel: row.activityLevel as ActivityLevel,
+      bmi: Number(row.bmi),
+      dailyCalorieTarget: row.dailyCalorieTarget,
+      createdAt: row.createdAt.toISOString(),
+    }))}
     activeWorkout={activeWorkout}
     email={session.user.email}
   />

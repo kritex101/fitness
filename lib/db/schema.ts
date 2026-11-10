@@ -1,4 +1,4 @@
-import { boolean, numeric, pgTable, smallint, text, timestamp, unique } from 'drizzle-orm/pg-core'
+import { boolean, integer, numeric, pgTable, smallint, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -66,6 +66,19 @@ export const fitnessCheckins = pgTable('fitness_checkins', {
   sessionId: text('session_id'),
   weightKg: numeric('weight_kg', { precision: 6, scale: 2 }).notNull(),
   reflection: text('reflection').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const fitnessMetricSnapshots = pgTable('fitness_metric_snapshots', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  weightKg: numeric('weight_kg', { precision: 6, scale: 2 }).notNull(),
+  heightCm: numeric('height_cm', { precision: 5, scale: 2 }).notNull(),
+  age: smallint('age').notNull(),
+  gender: text('gender').notNull(),
+  activityLevel: text('activity_level').notNull(),
+  bmi: numeric('bmi', { precision: 5, scale: 2 }).notNull(),
+  dailyCalorieTarget: integer('daily_calorie_target').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

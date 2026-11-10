@@ -6,8 +6,8 @@ import { headers } from 'next/headers'
 import { and, asc, count, desc, eq, gte, like, lt, or } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { fitnessCheckins, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
-import { buildWorkoutPlan, genderOptions, goals, experienceLevels, nextExperienceLevel, trainingEnvironments, weeklySessionTarget, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type TrainingEnvironment } from '@/lib/fitness-data'
+import { fitnessCheckins, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { activityLevels, buildWorkoutPlan, calculateBodyMetrics, genderOptions, goals, experienceLevels, nextExperienceLevel, trainingEnvironments, weeklySessionTarget, type ActivityLevel, type FitnessGoal, type GenderIdentity, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
 
 export type OnboardingInput = {
   name: string
@@ -83,6 +83,30 @@ export async function saveOnboarding(input: OnboardingInput) {
       reflection: 'Starting point entered during onboarding.',
     })
   })
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function updateFitnessPlan(input: { goal: FitnessGoal; experience: ExperienceLevel; environment: TrainingEnvironment }) {
+  const userId = await getUserId()
+  if (!input || typeof input !== 'object') throw new Error('Choose your plan preferences before saving.')
+  if (!goals.some((option) => option.value === input.goal)) throw new Error('Choose a valid training goal.')
+  if (!experienceLevels.some((option) => option.value === input.experience)) throw new Error('Choose a valid experience level.')
+  if (!trainingEnvironments.some((option) => option.value === input.environment)) throw new Error('Choose a valid training environment.')
+
+  const [activeWorkout] = await db.select({ id: workoutSessions.id }).from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress')))
+    .limit(1)
+  if (activeWorkout) throw new Error('Finish your active workout before changing plans.')
+
+  const [updatedProfile] = await db.update(fitnessProfiles).set({
+    goal: input.goal,
+    experience: input.experience,
+    environment: input.environment,
+    updatedAt: new Date(),
+  }).where(eq(fitnessProfiles.userId, userId)).returning({ userId: fitnessProfiles.userId })
+  if (!updatedProfile) throw new Error('Your profile could not be found. Refresh the page and try again.')
 
   revalidatePath('/')
   return { success: true }
@@ -289,4 +313,72 @@ export async function getRecentWorkoutSets(sessionId: string) {
   return db.select().from(workoutSets)
     .where(and(eq(workoutSets.sessionId, sessionId), eq(workoutSets.userId, userId)))
     .orderBy(asc(workoutSets.setNumber))
+}
+
+export async function saveBodyMetrics(input: {
+  weightKg: number
+  heightCm: number
+  age: number
+  gender: GenderIdentity
+  activityLevel: ActivityLevel
+}): Promise<MetricSnapshot> {
+  const userId = await getUserId()
+  if (!input || typeof input !== 'object') throw new Error('Enter your body metrics to continue.')
+  if (!isValidNumber(input.weightKg, 20, 500)) throw new Error('Enter a weight between 20 and 500 kg.')
+  if (!isValidNumber(input.heightCm, 90, 250)) throw new Error('Enter a height between 90 and 250 cm.')
+  if (!Number.isInteger(input.age) || input.age < 18 || input.age > 100) throw new Error('Enter an age between 18 and 100.')
+  if (!genderOptions.some((option) => option.value === input.gender)) throw new Error('Choose a gender option.')
+  if (!activityLevels.some((option) => option.value === input.activityLevel)) throw new Error('Choose an activity level.')
+
+  const [profile] = await db.select({ goal: fitnessProfiles.goal }).from(fitnessProfiles)
+    .where(eq(fitnessProfiles.userId, userId)).limit(1)
+  if (!profile || !goals.some((option) => option.value === profile.goal)) throw new Error('Complete your profile before saving body metrics.')
+
+  const calculated = calculateBodyMetrics(input, profile.goal as FitnessGoal)
+  const createdAt = new Date()
+  const id = randomUUID()
+  const snapshot: MetricSnapshot = {
+    id,
+    weightKg: input.weightKg,
+    heightCm: input.heightCm,
+    age: input.age,
+    gender: input.gender,
+    activityLevel: input.activityLevel,
+    bmi: calculated.bmi,
+    dailyCalorieTarget: calculated.dailyCalorieTarget,
+    createdAt: createdAt.toISOString(),
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(fitnessProfiles).set({
+      age: input.age,
+      gender: input.gender,
+      weightKg: input.weightKg.toFixed(2),
+      heightCm: input.heightCm.toFixed(2),
+      updatedAt: createdAt,
+    }).where(eq(fitnessProfiles.userId, userId))
+    await tx.insert(fitnessMetricSnapshots).values({
+      id,
+      userId,
+      weightKg: input.weightKg.toFixed(2),
+      heightCm: input.heightCm.toFixed(2),
+      age: input.age,
+      gender: input.gender,
+      activityLevel: input.activityLevel,
+      bmi: calculated.bmi.toFixed(2),
+      dailyCalorieTarget: calculated.dailyCalorieTarget,
+      createdAt,
+    })
+    await tx.insert(fitnessCheckins).values({
+      id: randomUUID(),
+      userId,
+      sessionId: null,
+      weightKg: input.weightKg.toFixed(2),
+      reflection: 'Body metrics updated from the dashboard calculator.',
+      createdAt,
+    })
+  })
+
+  revalidatePath('/')
+  return snapshot
 }
