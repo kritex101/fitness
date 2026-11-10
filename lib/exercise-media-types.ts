@@ -6,4 +6,10 @@ export type ExerciseMediaResponse = {
   source: ExerciseMediaSource
   mediaType: ExerciseMediaType
   imageUrls?: string[]
+  posterUrl?: string
+  exerciseId?: number
+  exerciseName?: string
+  gender?: 'male' | 'female'
+  angle?: 'front' | 'side'
+  instructions?: string[]
 }

@@ -349,16 +349,16 @@ export function WorkoutFlow({
             {stage === 'rest' && <div className="rest-message"><span>RECOVER AT YOUR PACE</span><strong>Slow breath in.<br />Long breath out.</strong></div>}
           </div>
           <div className="workout-guidance-layout">
+            <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
+              <span className="eyebrow">VISUAL GUIDE</span>
+              <h4>Watch the movement</h4>
+              <ExerciseMediaGallery key={`${currentExercise.id}-${visualGender}`} exerciseName={currentExercise.name} gender={visualGender} autoLoad showInstructions={false} />
+            </aside>
             <section className="tutorial-panel" aria-label={`${currentExercise.name} instructions`}>
               <div className="tutorial-heading"><div><span className="eyebrow">EXERCISE INSTRUCTIONS</span><h4>Follow these form cues</h4></div></div>
               <ol className="tutorial-cues">{currentExercise.instructions.map((instruction, index) => <li key={instruction}><span>{String(index + 1).padStart(2, '0')}</span><p>{instruction}</p></li>)}</ol>
               {stage === 'tutorial' && <><p className="tutorial-status" role="status">{tutorialHasPlayed ? 'Procedures read. Continue when you are ready.' : 'Review the procedures, then continue when you are ready.'}</p><button type="button" className="primary-button dialog-primary" onClick={playTutorial}><Play size={15} fill="currentColor" /> {tutorialHasPlayed ? 'Replay spoken procedures' : 'Hear spoken procedures'}</button></>}
             </section>
-            <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
-              <span className="eyebrow">VISUAL GUIDE</span>
-              <h4>Watch the movement</h4>
-              <ExerciseMediaGallery key={`${currentExercise.id}-${visualGender}`} exerciseName={currentExercise.name} gender={visualGender} autoLoad />
-            </aside>
           </div>
           {stage === 'tutorial' && <div className="player-action-panel"><p className="dialog-lede">The coach will read only the movement procedures. This session waits here until you choose to continue.</p><button type="button" className="primary-button dialog-primary" onClick={() => setStage('ready')}>Continue when ready <ArrowRight size={16} /></button></div>}
           {stage === 'ready' && <div className="player-action-panel"><p className="dialog-lede">Use a comfortable range and stop if you feel sharp pain, dizziness, or unusual shortness of breath.</p><button type="button" className="primary-button dialog-primary" onClick={beginInterval}><Play size={15} fill="currentColor" /> Start {WORK_SECONDS}-second interval</button><button type="button" className="secondary-button dialog-secondary" onClick={() => { setStage('tutorial'); playTutorial() }}><RotateCcw size={15} /> Review procedures</button></div>}

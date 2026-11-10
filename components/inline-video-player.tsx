@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Maximize2, Minimize2, Pause, Play, Volume2, VolumeX, X } from 'lucide-react'
+import { LoaderCircle, Maximize2, Minimize2, Pause, Play, RotateCcw, Volume2, VolumeX, X } from 'lucide-react'
 
 type CaptionsTrack = {
   src: string
@@ -17,6 +17,7 @@ type InlineVideoPlayerProps = {
   captions?: CaptionsTrack
   loop?: boolean
   className?: string
+  onRetry?: () => void
 }
 
 function formatMediaTime(seconds: number) {
@@ -34,6 +35,7 @@ export function InlineVideoPlayer({
   captions,
   loop = false,
   className = '',
+  onRetry,
 }: InlineVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -44,10 +46,12 @@ export function InlineVideoPlayer({
   const userPausedRef = useRef(false)
   const isInViewRef = useRef(false)
   const wasExpandedRef = useRef(false)
+  const refreshAttemptedRef = useRef(false)
   const titleId = useId()
   const descriptionId = useId()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isMuted, setIsMuted] = useState(true)
   const [volume, setVolume] = useState(1)
   const [currentTime, setCurrentTime] = useState(0)
@@ -179,6 +183,16 @@ export function InlineVideoPlayer({
     }
   }
 
+  function replayVideo() {
+    const media = videoRef.current
+    if (!media) return
+    userPausedRef.current = false
+    setCurrentTime(0)
+    setControlMessage('')
+    media.currentTime = 0
+    attemptPlayback(media)
+  }
+
   function toggleMute() {
     const media = videoRef.current
     if (!media) return
@@ -269,15 +283,30 @@ export function InlineVideoPlayer({
             aria-label={title}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
+            onLoadStart={() => {
+              setIsLoading(true)
+              setMediaError(false)
+            }}
             onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
             onLoadedMetadata={(event) => {
               setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)
               setMediaError(false)
             }}
-            onError={() => setMediaError(true)}
+            onLoadedData={() => setIsLoading(false)}
+            onCanPlay={() => setIsLoading(false)}
+            onError={() => {
+              setIsLoading(false)
+              setMediaError(true)
+              if (onRetry && !refreshAttemptedRef.current) {
+                refreshAttemptedRef.current = true
+                window.setTimeout(onRetry, 0)
+              }
+            }}
           >
             {captions && <track ref={captionsTrackRef} kind="captions" src={captions.src} srcLang={captions.language} label={captions.label} />}
           </video>
+
+          {isLoading && <div className="inline-video-loading" role="status"><LoaderCircle size={18} aria-hidden="true" /><span>Loading video…</span></div>}
 
           <button
             ref={openButtonRef}
@@ -315,6 +344,9 @@ export function InlineVideoPlayer({
                 <button className="inline-video-icon-button" type="button" onClick={togglePlayback} aria-label={isPlaying ? 'Pause video' : 'Play video'}>
                   {isPlaying ? <Pause size={19} aria-hidden="true" /> : <Play size={19} aria-hidden="true" />}
                 </button>
+                <button className="inline-video-icon-button" type="button" onClick={replayVideo} aria-label="Replay video" disabled={!duration}>
+                  <RotateCcw size={19} aria-hidden="true" />
+                </button>
                 <button className="inline-video-icon-button" type="button" onClick={toggleMute} aria-label={isMuted ? 'Unmute video' : 'Mute video'} aria-pressed={isMuted}>
                   {isMuted || volume === 0 ? <VolumeX size={19} aria-hidden="true" /> : <Volume2 size={19} aria-hidden="true" />}
                 </button>
@@ -348,16 +380,18 @@ export function InlineVideoPlayer({
               </div>
             </div>
             {(controlMessage || mediaError) && (
-              <p className="inline-video-status" role={mediaError || controlMessage ? 'alert' : 'status'}>
-                {controlMessage || (mediaError ? 'This video could not be loaded. Check the video URL and try again.' : 'Autoplay was blocked. Open the player and press Play to start the video.')}
-              </p>
+              <div className="inline-video-status" role={mediaError || controlMessage ? 'alert' : 'status'}>
+                <span>{controlMessage || (mediaError ? 'This video could not be loaded. Refresh the media link and try again.' : 'Autoplay was blocked. Press Play to start the video.')}</span>
+                {mediaError && onRetry && <button type="button" onClick={onRetry}>Refresh video</button>}
+              </div>
             )}
           </div>
         ) : (
           (mediaError || autoplayBlocked) && (
-            <p className="inline-video-status" role={mediaError ? 'alert' : 'status'}>
-              {mediaError ? 'This video could not be loaded. Check the video URL and try again.' : 'Muted autoplay is unavailable. Open the player and press Play to start the video.'}
-            </p>
+            <div className="inline-video-status" role={mediaError ? 'alert' : 'status'}>
+              <span>{mediaError ? 'This video could not be loaded. Refresh the media link and try again.' : 'Muted autoplay is unavailable. Open the player and press Play to start the video.'}</span>
+              {mediaError && onRetry && <button type="button" onClick={onRetry}>Refresh video</button>}
+            </div>
           )
         )}
       </article>

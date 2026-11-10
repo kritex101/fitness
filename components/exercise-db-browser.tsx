@@ -95,13 +95,14 @@ export function ExerciseDbBrowser({ gender }: { gender: ExerciseVisualGender }) 
               <h3>{exercise.name}</h3>
               <div className="exercise-db-card-meta"><span><strong>Target muscle</strong>{exercise.target}</span><span><strong>Equipment</strong>{exercise.equipment}</span></div>
               <div className="library-exercise-detail">
-                <div className="library-instructions-panel">
-                  <h4 className="exercise-db-instructions-heading">Instructions</h4>
-                  {exercise.instructions.length ? <ol className="exercise-instructions">{exercise.instructions.map((instruction, instructionIndex) => <li key={`${exercise.id}-${instructionIndex}`}>{instruction}</li>)}</ol> : <p className="exercise-db-empty-instructions">Instructions are not available for this exercise.</p>}
-                </div>
                 <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
                   <span className="eyebrow">MOVEMENT GUIDE</span>
-                  <ExerciseMediaGallery key={`${exercise.id}-${gender}`} exerciseName={exercise.name} gender={gender} />
+                  <ExerciseMediaGallery
+                    key={`${exercise.id}-${gender}`}
+                    exerciseName={exercise.name}
+                    gender={gender}
+                    fallbackInstructions={exercise.instructions.length ? exercise.instructions : ['Instructions are not available for this exercise.']}
+                  />
                 </aside>
               </div>
             </div>

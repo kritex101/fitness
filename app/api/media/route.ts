@@ -6,8 +6,8 @@ import { fitnessProfiles } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import type { ExerciseMediaResponse, ExerciseMediaSource } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
+import { addMuscleWikiToken, createMuscleWikiProxyUrl, getMuscleWikiExerciseByName, getMuscleWikiMediaToken, selectMuscleWikiVideo, type MuscleWikiProviderStatus } from '@/lib/musclewiki-api'
 
-const MUSCLEWIKI_BASE_URL = 'https://api.musclewiki.com'
 const WORKOUTX_BASE_URL = 'https://api.workoutxapp.com/v2'
 const EXERCISEDB_BASE_URL = 'https://exercisedb.p.rapidapi.com'
 const API_NINJAS_BASE_URL = 'https://api.api-ninjas.com'
@@ -151,27 +151,38 @@ async function fetchProvider(
   }
 }
 
-async function fetchMuscleWikiMedia(name: string, gender: ExerciseVisualGender, apiKey: string, statuses: ProviderStatus[]): Promise<string | null> {
-  const searchUrl = new URL('/exercises', MUSCLEWIKI_BASE_URL)
-  searchUrl.search = new URLSearchParams({ search: name, gender, limit: '20' }).toString()
-  const searchResponse = await fetchProvider('musclewiki', 'exercise search', searchUrl, { 'X-API-Key': apiKey }, statuses)
-  if (!searchResponse?.ok) return null
+async function fetchMuscleWikiMedia(name: string, gender: ExerciseVisualGender, apiKey: string, statuses: ProviderStatus[], forceRefreshToken = false): Promise<ExerciseMediaResponse | null> {
+  const recordStatus = (status: MuscleWikiProviderStatus) => { statuses.push(status) }
+  const exercise = await getMuscleWikiExerciseByName(name, gender, apiKey, recordStatus)
+  if (!exercise) return null
 
-  const exercise = findExactExercise(getRecords(await readJson(searchResponse)), name, gender)
-  const exerciseId = exercise ? getRecordId(exercise) : null
-  if (!exerciseId || !exercise || !matchesGender(exercise, gender)) return null
+  const video = selectMuscleWikiVideo(exercise.videos)
+  if (!video) return null
 
-  const videosUrl = new URL(`/exercises/${encodeURIComponent(exerciseId)}/videos`, MUSCLEWIKI_BASE_URL)
-  videosUrl.search = new URLSearchParams({ gender }).toString()
-  const videosResponse = await fetchProvider('musclewiki', 'video lookup', videosUrl, { 'X-API-Key': apiKey }, statuses)
-  if (!videosResponse?.ok) return null
+  const mediaToken = await getMuscleWikiMediaToken(apiKey, recordStatus, forceRefreshToken)
+  const supportsProxyFallback = mediaToken.status === 501 || mediaToken.status === 503 || mediaToken.status === 'network_error'
+  if (!mediaToken.token && !supportsProxyFallback) return null
 
-  for (const video of getRecords(await readJson(videosResponse))) {
-    if (!matchesGender(video, gender, true)) continue
-    const media = findMediaCandidate(video)
-    if (media) return media.url
+  const videoUrl = mediaToken.token
+    ? addMuscleWikiToken(video.url, mediaToken.token)
+    : createMuscleWikiProxyUrl(exercise.id, gender, video.angle, 'video')
+  const posterUrl = video.posterUrl
+    ? mediaToken.token
+      ? addMuscleWikiToken(video.posterUrl, mediaToken.token)
+      : createMuscleWikiProxyUrl(exercise.id, gender, video.angle, 'poster')
+    : undefined
+
+  return {
+    videoUrl,
+    posterUrl,
+    source: 'musclewiki',
+    mediaType: 'video',
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+    gender,
+    angle: video.angle,
+    instructions: exercise.instructions,
   }
-  return null
 }
 
 async function fetchWorkoutXMedia(name: string, gender: ExerciseVisualGender, apiKey: string, statuses: ProviderStatus[]): Promise<string | null> {
@@ -261,8 +272,7 @@ export async function GET(request: Request) {
   if (excludedSources.has('musclewiki')) {
     statuses.push({ provider: 'musclewiki', stage: 'skipped after playback failure', status: 'excluded' })
   } else if (muscleWikiKey) {
-    const videoUrl = await fetchMuscleWikiMedia(name, gender as ExerciseVisualGender, muscleWikiKey, statuses)
-    if (videoUrl) result = { videoUrl, source: 'musclewiki', mediaType: getVideoMediaType(videoUrl) }
+    result = await fetchMuscleWikiMedia(name, gender as ExerciseVisualGender, muscleWikiKey, statuses, searchParams.get('attempt') === '1')
   } else {
     statuses.push({ provider: 'musclewiki', stage: 'exercise search', status: 'not_configured' })
     console.log('[v0] /api/media MuscleWiki not configured')
@@ -306,10 +316,13 @@ export async function GET(request: Request) {
   const anyConfigured = Boolean(muscleWikiKey || workoutXKey || exerciseDbKey || ninjasKey)
   const hasProviderFailure = statuses.some(({ status }) => status === 'network_error' || (typeof status === 'number' && (status < 200 || status >= 300)))
   const status = !anyConfigured ? 503 : hasProviderFailure ? 502 : 404
+  const muscleWikiPlanBlocked = statuses.some(({ provider, status: providerStatus }) => provider === 'musclewiki' && providerStatus === 403)
   const message = status === 404
     ? 'No exercise animation is available for this movement.'
     : status === 503
       ? 'Exercise media is not configured right now.'
-      : 'Exercise media providers are temporarily unavailable.'
+      : muscleWikiPlanBlocked
+        ? 'MuscleWiki direct API access requires a TESTING plan or higher. Update the server-side API key to enable its exercise videos.'
+        : 'Exercise media providers are temporarily unavailable.'
   return addStatusesHeader(NextResponse.json({ error: message }, { status }), statuses)
 }

@@ -11,7 +11,7 @@ import { fitnessProfiles } from '@/lib/db/schema'
 
 export const metadata: Metadata = {
   title: 'Exercise Library | FitPilot',
-  description: 'Browse ExerciseDB movements by target muscle or name, review instructions and equipment, and watch matching demonstrations.',
+  description: 'Browse exercises by target muscle or name, review form instructions, and watch gender-matched MuscleWiki demonstrations.',
 }
 
 export default async function ExerciseLibraryPage() {
@@ -31,6 +31,7 @@ export default async function ExerciseLibraryPage() {
           <p className="eyebrow">MOVEMENT REFERENCE</p>
           <h1>Exercise library</h1>
           <p>Search live ExerciseDB movements by target muscle or name. Each result pairs its instructions and equipment details with a matching gender-specific demonstration or animation.</p>
+          <p className="exercise-catalog-disclosure"><strong>MuscleWiki attribution:</strong> When a demonstration is sourced from MuscleWiki, its video and branded media are provided by MuscleWiki; MuscleWiki retains rights to its content and trademarks.</p>
         </div>
         <span className="exercise-catalog-count"><Dumbbell size={16} aria-hidden="true" />ExerciseDB</span>
       </header>

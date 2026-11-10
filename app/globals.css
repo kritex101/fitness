@@ -188,10 +188,12 @@ h1, h2, h3, p { margin-top: 0; }
 .exercise-catalog-header h1 { margin: 0; font-size: clamp(29px, 4vw, 40px); font-weight: 720; letter-spacing: -.055em; line-height: 1.1; text-wrap: balance; }
 .exercise-catalog-header p:last-child { max-width: 640px; margin: 8px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .exercise-catalog-count { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 9px 11px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.exercise-catalog-disclosure { max-width: 760px; margin: 9px 0 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+.exercise-catalog-disclosure strong { color: var(--foreground); }
 .exercise-library { display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; }
 .library-card { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
 .library-copy { padding: 19px 21px; }
-.library-exercise-detail { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); align-items: start; gap: 18px; margin-top: 13px; }
+.library-exercise-detail { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; margin-top: 13px; }
 .library-instructions-panel, .library-video-panel { min-width: 0; }
 .library-instructions-panel .exercise-instructions { margin-top: 0; }
 .library-video-panel { border: 1px solid var(--border); border-radius: 12px; background: var(--background); padding: 12px; }
@@ -513,7 +515,7 @@ h1, h2, h3, p { margin-top: 0; }
 .rest-message { position: absolute; top: 21px; left: 20px; display: grid; gap: 8px; }
 .rest-message strong { font-size: clamp(19px, 3vw, 29px); line-height: 1.1; letter-spacing: -.05em; }
 .trainer-screen-rest .trainer-photo { filter: saturate(.72); }
-.workout-guidance-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, .85fr); gap: 12px; margin-top: 13px; }
+.workout-guidance-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 13px; }
 .tutorial-panel, .player-action-panel { margin-top: 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px; }
 .workout-guidance-layout .tutorial-panel, .workout-video-panel { min-width: 0; margin: 0; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px; }
 .workout-video-panel > .eyebrow { display: block; margin-bottom: 3px; }
@@ -587,7 +589,10 @@ h1, h2, h3, p { margin-top: 0; }
 .inline-video-description { margin: 4px 0 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
 .inline-video-stage { position: relative; overflow: hidden; aspect-ratio: 16 / 9; background: var(--foreground); isolation: isolate; }
 .inline-video-media { display: block; width: 100%; height: 100%; object-fit: cover; }
-.inline-video-open { position: absolute; inset: 0; display: grid; width: 100%; height: 100%; place-items: center; border: 0; background: transparent; color: var(--surface); cursor: pointer; }
+.inline-video-open { position: absolute; inset: 0; z-index: 2; display: grid; width: 100%; height: 100%; place-items: center; border: 0; background: transparent; color: var(--surface); cursor: pointer; }
+.inline-video-loading { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 9px; background: color-mix(in srgb, var(--foreground) 58%, transparent); color: var(--surface); font-size: 12px; pointer-events: none; }
+.inline-video-loading svg { animation: inline-video-spin 1s linear infinite; }
+@keyframes inline-video-spin { to { transform: rotate(360deg); } }
 .inline-video-open[hidden] { display: none; }
 .inline-video-open-chip { display: inline-flex; min-height: 42px; align-items: center; gap: 9px; border: 1px solid color-mix(in srgb, var(--surface) 36%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--foreground) 74%, transparent); padding: 0 15px; color: var(--surface); font-size: 11px; font-weight: 700; backdrop-filter: blur(8px); transition: transform 160ms ease, background-color 160ms ease; }
 .inline-video-open:hover .inline-video-open-chip { transform: scale(1.035); background: color-mix(in srgb, var(--foreground) 88%, transparent); }
@@ -603,7 +608,9 @@ h1, h2, h3, p { margin-top: 0; }
 .inline-video-speed { min-height: 38px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 0 9px; color: var(--foreground); font-size: 11px; }
 .inline-video-caption-button { min-width: 40px; min-height: 38px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--foreground); cursor: pointer; font-size: 10px; font-weight: 800; }
 .inline-video-caption-button[aria-pressed="true"] { border-color: var(--foreground); background: var(--subtle); }
-.inline-video-status { margin: 0; padding: 0 16px 12px; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+.inline-video-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 0 16px 12px; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; }
+.inline-video-status button { min-height: 32px; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 10px; color: var(--foreground); font: inherit; font-weight: 650; cursor: pointer; }
+.inline-video-icon-button:disabled { cursor: not-allowed; opacity: .55; }
 .inline-video-expanded { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; overflow: auto; background: color-mix(in srgb, var(--foreground) 74%, transparent); padding: 24px; backdrop-filter: blur(7px); }
 .inline-video-expanded .inline-video-card { width: min(100%, 1040px); max-height: calc(100vh - 48px); max-height: min(94dvh, 900px); overflow-y: auto; }
 .inline-video-expanded .inline-video-stage { max-height: min(62vh, 700px); aspect-ratio: 16 / 9; }
@@ -677,6 +684,13 @@ h1, h2, h3, p { margin-top: 0; }
 .exercise-media-caption { display: grid; gap: 2px; padding: 8px 9px; }
 .exercise-media-caption strong { font-size: 10px; }
 .exercise-media-caption span { color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+.exercise-media-attribution { color: var(--muted-foreground); font-size: 10px; line-height: 1.5; }
+.exercise-media-instructions { display: grid; gap: 8px; margin-top: 9px; border-top: 1px solid var(--border); padding-top: 11px; }
+.exercise-media-instructions h4 { margin: 0; font-size: 12px; font-weight: 700; }
+.exercise-media-instructions .exercise-instructions { margin: 0; }
+.exercise-inline-player .inline-video-card { border: 0; border-radius: 0; box-shadow: none; }
+.exercise-inline-player .inline-video-heading { padding: 11px 13px; }
+@media (prefers-reduced-motion: reduce) { .inline-video-loading svg { animation: none; } }
 .exercise-media-retry { min-height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 12px; color: var(--foreground); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .exercise-media-retry:hover { border-color: var(--primary); }
 .exercise-media-retry:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
