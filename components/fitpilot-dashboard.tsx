@@ -25,6 +25,19 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'FP'
 }
 
+function formatSessionDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(value))
+}
+
+function utcDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
 function getWeek(date: Date, sessions: WorkoutSession[]) {
   const start = new Date(date)
   start.setHours(0, 0, 0, 0)
@@ -39,16 +52,16 @@ function getWeek(date: Date, sessions: WorkoutSession[]) {
 }
 
 function countCurrentStreak(sessions: WorkoutSession[]) {
-  const completedDays = new Set(sessions.filter((session) => session.status === 'completed').map((session) => new Date(session.startedAt).toDateString()))
+  const completedDays = new Set(sessions.filter((session) => session.status === 'completed').map((session) => utcDateKey(new Date(session.startedAt))))
   const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  if (!completedDays.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1)
-  if (!completedDays.has(cursor.toDateString())) return 0
+  cursor.setUTCHours(0, 0, 0, 0)
+  if (!completedDays.has(utcDateKey(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1)
+  if (!completedDays.has(utcDateKey(cursor))) return 0
 
   let streak = 0
-  while (completedDays.has(cursor.toDateString())) {
+  while (completedDays.has(utcDateKey(cursor))) {
     streak += 1
-    cursor.setDate(cursor.getDate() - 1)
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
   }
   return streak
 }
@@ -156,7 +169,7 @@ export function FitPilotDashboard({
             <section className="panel lineup-panel" aria-labelledby="lineup-heading"><div className="panel-heading"><div><h2 id="lineup-heading">Next strength session</h2><p>Variation {String.fromCharCode(65 + (completedThisWeek % 3))} · {plan.length} movements</p></div><button type="button" className="text-link" onClick={() => setActiveNav('Training')}>Exercise guide <ArrowRight size={14} /></button></div><div className="lineup-list">{plan.slice(0, 3).map((exercise, index) => <div className="lineup-row" key={exercise.id}><span className="lineup-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{exercise.name}</strong><small>{exercise.equipment}</small></div><span className="lineup-reps">{exercise.repMin}–{exercise.repMax}</span></div>)}</div></section>
             <section className="panel goal-panel"><span className="eyebrow">YOUR FOCUS</span><h2>{labelForGoal(profile.goal)}</h2><p>{labelForEnvironment(profile.environment)} · {labelForExperience(profile.experience)}</p><button type="button" className="text-link" onClick={() => setActiveNav('My plan')}>Review your plan <ArrowRight size={14} /></button>            </section>
           </div>
-          <section className="panel recent-history-panel" aria-labelledby="recent-history-heading"><div className="panel-heading"><div><h2 id="recent-history-heading">Recent workout history</h2><p>Completed sessions saved to your account</p></div><button type="button" className="text-link" onClick={() => setActiveNav('Progress')}>Full history <ArrowRight size={14} /></button></div>{completedSessions.length ? <ol className="recent-history-list">{completedSessions.slice(0, 5).map((session) => <li key={session.id}><span><strong>{session.sessionName}</strong><small>{new Date(session.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</small></span><Check size={16} aria-label="Completed" /></li>)}</ol> : <p className="recent-history-empty">Your completed workouts will appear here.</p>}</section>
+          <section className="panel recent-history-panel" aria-labelledby="recent-history-heading"><div className="panel-heading"><div><h2 id="recent-history-heading">Recent workout history</h2><p>Completed sessions saved to your account</p></div><button type="button" className="text-link" onClick={() => setActiveNav('Progress')}>Full history <ArrowRight size={14} /></button></div>{completedSessions.length ? <ol className="recent-history-list">{completedSessions.slice(0, 5).map((session) => <li key={session.id}><span><strong>{session.sessionName}</strong><small>{formatSessionDate(session.startedAt)}</small></span><Check size={16} aria-label="Completed" /></li>)}</ol> : <p className="recent-history-empty">Your completed workouts will appear here.</p>}</section>
           <BodyMetricsPanel profile={profile} snapshots={metrics} />
         </>}
         {activeNav === 'Training' && <section className="page-section"><div className="section-heading"><div><p className="eyebrow">BUILT AROUND YOUR GOAL</p><h1>Your training guide</h1><p>{plan.length} exercises for {labelForEnvironment(profile.environment).toLowerCase()}. Start light, focus on control, and progress gradually.</p></div><button className="primary-button" type="button" onClick={openWorkout}>{activeWorkout ? 'Resume session' : 'Start a session'} <ArrowRight size={16} /></button></div><WeeklyTrainingSchedule goal={profile.goal} experience={profile.experience} environment={profile.environment} /><ExerciseLibrary exercises={plan} visualGender={visualGender} /></section>}
