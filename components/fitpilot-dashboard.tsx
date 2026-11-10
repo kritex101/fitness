@@ -10,7 +10,6 @@ import { ExerciseLibrary } from '@/components/exercise-library'
 import { WeeklyTrainingSchedule } from '@/components/weekly-training-schedule'
 import { ProgressPanel } from '@/components/progress-panel'
 import { BodyMetricsPanel } from '@/components/body-metrics-panel'
-import { WorkoutFlow } from '@/components/workout-flow'
 import { ProfilePage } from '@/components/profile-page'
 import { PlanEditorDialog } from '@/components/plan-editor-dialog'
 import { authClient } from '@/lib/auth-client'
@@ -67,11 +66,10 @@ export function FitPilotDashboard({
 }) {
   const router = useRouter()
   const [activeNav, setActiveNav] = useState<NavItem>('Overview')
-  const [workoutOpen, setWorkoutOpen] = useState(false)
   const [planEditorOpen, setPlanEditorOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [visualGender, setVisualGender] = useState<ExerciseVisualGender>(() => profile.gender === 'woman' ? 'female' : 'male')
-  const [activeWorkout, setActiveWorkout] = useState<ActiveWorkoutState | null>(initialWorkout)
+  const activeWorkout = initialWorkout
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [week, setWeek] = useState(() => Array.from({ length: 7 }, (_, index) => ({ label: '', date: index + 1, today: false, done: false })))
   const [todayLabel, setTodayLabel] = useState('Today')
@@ -100,8 +98,8 @@ export function FitPilotDashboard({
   }
 
   function openWorkout() {
-    setWorkoutOpen(true)
     setMobileMenuOpen(false)
+    router.push('/training')
   }
 
   const navItems = [
@@ -149,7 +147,6 @@ export function FitPilotDashboard({
         <footer className="app-footer"><span>Made for your long game.</span><span><Activity size={14} /> One step at a time</span></footer>
       </div>
     </main>
-    {workoutOpen && <WorkoutFlow profile={profile} visualGender={visualGender} onVisualGenderChange={setVisualGender} initialWeightKg={latestWeight} initialWorkout={activeWorkout} onClose={() => setWorkoutOpen(false)} onStarted={setActiveWorkout} onCompleted={() => { setActiveWorkout(null); router.refresh() }} />}
     {planEditorOpen && <PlanEditorDialog profile={profile} hasActiveWorkout={Boolean(activeWorkout)} onClose={() => setPlanEditorOpen(false)} onSaved={() => { setPlanEditorOpen(false); router.refresh() }} />}
     {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
   </div>

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
 import { labelForExperience, type ExerciseVisualGender, type ExperienceLevel, type FitnessProfile } from '@/lib/fitness-data'
 import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
@@ -54,6 +54,7 @@ export function WorkoutFlow({
   onClose,
   onStarted,
   onCompleted,
+  standalone = false,
 }: {
   profile: FitnessProfile
   visualGender: ExerciseVisualGender
@@ -63,6 +64,7 @@ export function WorkoutFlow({
   onClose: () => void
   onStarted: (workout: ActiveWorkoutState) => void
   onCompleted: () => void
+  standalone?: boolean
 }) {
   const [workout, setWorkout] = useState<ActiveWorkoutState | null>(initialWorkout)
   const [position, setPosition] = useState<SetPosition | null>(() => getNextSetPosition(initialWorkout))
@@ -97,11 +99,11 @@ export function WorkoutFlow({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy && !busySetId) closePlayer()
+      if (event.key === 'Escape' && !standalone && !busy && !busySetId) closePlayer()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [busy, busySetId, closePlayer])
+  }, [busy, busySetId, closePlayer, standalone])
 
   useEffect(() => {
     if (!timerId || timerPaused) return
@@ -264,9 +266,9 @@ export function WorkoutFlow({
   const currentStepNumber = position ? position.exerciseIndex + 1 : 0
   const totalSteps = workout?.exercises.length ?? 0
 
-  return <div className="modal-backdrop" role="presentation">
-    <section className="workout-dialog workout-player-dialog" role="dialog" aria-modal="true" aria-labelledby="workout-dialog-title">
-      <header className="dialog-header"><div><span className="eyebrow">{workout ? 'GUIDED SESSION' : 'BEFORE YOU BEGIN'}</span><h2 id="workout-dialog-title">{stage === 'finished' ? 'Nice work, ' + profile.name + '.' : workout ? workout.sessionName : 'Quick check-in'}</h2></div><div className="dialog-header-actions">{workout && stage !== 'finished' && <button type="button" className="voice-coach-toggle" onClick={toggleVoiceCoach} disabled={!voiceCoachSupported} aria-pressed={voiceCoachEnabled} aria-label={voiceCoachSupported ? `${voiceCoachEnabled ? 'Mute' : 'Unmute'} Voice Coach` : 'Voice Coach unavailable in this browser'} title={voiceCoachSupported ? undefined : 'Voice coaching is not supported in this browser'}>{voiceCoachEnabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}<span className="voice-coach-toggle-label">Voice Coach</span><span className="voice-coach-mobile-label">Voice</span><strong>{voiceCoachSupported ? voiceCoachEnabled ? 'Mute' : 'Unmute' : 'Unavailable'}</strong></button>}<button type="button" className="modal-close" onClick={closePlayer} aria-label="Close workout"><X size={20} /></button></div></header>
+  return <div className={standalone ? 'training-page-shell' : 'modal-backdrop'} role={standalone ? undefined : 'presentation'}>
+    <section className={`workout-dialog workout-player-dialog${standalone ? ' training-page-panel' : ''}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="workout-dialog-title">
+      <header className="dialog-header"><div><span className="eyebrow">{workout ? 'GUIDED SESSION' : 'BEFORE YOU BEGIN'}</span><h2 id="workout-dialog-title">{stage === 'finished' ? 'Nice work, ' + profile.name + '.' : workout ? workout.sessionName : 'Quick check-in'}</h2></div><div className="dialog-header-actions">{workout && stage !== 'finished' && <button type="button" className="voice-coach-toggle" onClick={toggleVoiceCoach} disabled={!voiceCoachSupported} aria-pressed={voiceCoachEnabled} aria-label={voiceCoachSupported ? `${voiceCoachEnabled ? 'Mute' : 'Unmute'} Voice Coach` : 'Voice Coach unavailable in this browser'} title={voiceCoachSupported ? undefined : 'Voice coaching is not supported in this browser'}>{voiceCoachEnabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}<span className="voice-coach-toggle-label">Voice Coach</span><span className="voice-coach-mobile-label">Voice</span><strong>{voiceCoachSupported ? voiceCoachEnabled ? 'Mute' : 'Unmute' : 'Unavailable'}</strong></button>}<button type="button" className={standalone ? 'training-back-button' : 'modal-close'} onClick={closePlayer} aria-label={standalone ? 'Back to dashboard' : 'Close workout'}>{standalone ? <><ArrowLeft size={16} aria-hidden="true" /><span>Dashboard</span></> : <X size={20} />}</button></div></header>
       {!workout && <form className="checkin-form" onSubmit={beginSession}>
         <p className="dialog-lede">Every workout begins with a fresh check-in. Add your current weight and a short reflection before your guided session.</p>
         <label className="field"><span>Current weight <b>kg</b></span><input type="number" required min={20} max={500} step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>

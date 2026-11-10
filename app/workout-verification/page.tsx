@@ -52,6 +52,7 @@ export default function WorkoutVerificationPage() {
   const [visualGender, setVisualGender] = useState<'male' | 'female'>('female')
 
   return <WorkoutFlow
+    standalone
     profile={profile}
     visualGender={visualGender}
     onVisualGenderChange={setVisualGender}
