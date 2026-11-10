@@ -3,6 +3,7 @@ export type ExerciseMediaItem = {
   provider: 'MuscleWiki' | 'WorkoutX'
   kind: 'demonstration' | 'animation'
   videoUrl: string
+  mediaType: 'video' | 'gif'
   posterUrl: string | null
   angle: string | null
 }

@@ -38,7 +38,7 @@ const initialWorkout: ActiveWorkoutState = {
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
-    if (typeof input === 'string' && input.startsWith('/api/exercise-media')) {
+    if (typeof input === 'string' && input.startsWith('/api/exercises/media')) {
       return new Response(JSON.stringify({ media: [], unavailableSources: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
