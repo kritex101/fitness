@@ -2,8 +2,8 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
-import { completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
+import { ArrowLeft, ArrowRight, Check, Pause, Play, Plus, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { addWorkoutSet, completeWorkout, startWorkout, updateWorkoutSet, type ActiveWorkoutState, type WorkoutSetState } from '@/app/actions/fitness'
 import { labelForExperience, type ExerciseVisualGender, type ExperienceLevel, type FitnessProfile } from '@/lib/fitness-data'
 import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
@@ -107,6 +107,7 @@ export function WorkoutFlow({
   const [weight, setWeight] = useState(String(initialWeightKg))
   const [reflection, setReflection] = useState('')
   const [busy, setBusy] = useState(false)
+  const [repeatSessionId, setRepeatSessionId] = useState<string | null>(null)
   const [busySetId, setBusySetId] = useState('')
   const [error, setError] = useState('')
   const [levelUp, setLevelUp] = useState<ExperienceLevel | null>(null)
@@ -213,7 +214,8 @@ export function WorkoutFlow({
     setBusy(true)
     setError('')
     try {
-      const started = await startWorkout({ weightKg: Number(weight), reflection })
+      const started = await startWorkout({ weightKg: Number(weight), reflection, repeatSessionId: repeatSessionId ?? undefined })
+      setRepeatSessionId(null)
       setWorkout(started)
       setPosition(getNextSetPosition(started))
       setStage('tutorial')
@@ -302,6 +304,33 @@ export function WorkoutFlow({
     }
   }
 
+  async function continueToAnotherSet() {
+    if (!workout || busy) return
+    const exerciseIndex = workout.exercises.length - 1
+    const exercise = workout.exercises[exerciseIndex]
+    if (!exercise || exercise.workoutSets.length === 0) return
+
+    setBusy(true)
+    setError('')
+    try {
+      const addedSet = await addWorkoutSet({ sessionId: workout.id, exerciseId: exercise.id })
+      const updatedWorkout = {
+        ...workout,
+        exercises: workout.exercises.map((item, index) => index === exerciseIndex
+          ? { ...item, workoutSets: [...item.workoutSets, addedSet] }
+          : item),
+      }
+      setWorkout(updatedWorkout)
+      setPosition({ exerciseIndex, setIndex: exercise.workoutSets.length })
+      setStage('ready')
+      onStarted(updatedWorkout)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Another set could not be added.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function finishSession() {
     if (!workout) return
     stopVoiceCoach()
@@ -320,9 +349,24 @@ export function WorkoutFlow({
     }
   }
 
+  function prepareWorkoutRepeat() {
+    if (!workout) return
+    stopVoiceCoach()
+    setRepeatSessionId(workout.id)
+    setWorkout(null)
+    setPosition(null)
+    setWeight(String(initialWeightKg))
+    setReflection('')
+    setLevelUp(null)
+    setAlreadyAdvancedThisWeek(false)
+    setError('')
+    setStage('checkin')
+  }
+
   const timerLabel = timer?.kind === 'work' ? 'Movement interval' : timer?.kind === 'rest' ? 'Rest interval' : ''
   const currentStepNumber = position ? position.exerciseIndex + 1 : 0
   const totalSteps = workout?.exercises.length ?? 0
+  const lastExercise = workout?.exercises.at(-1) ?? null
 
   return <div className={standalone ? 'training-page-shell' : 'modal-backdrop'} role={standalone ? undefined : 'presentation'}>
     <section className={`workout-dialog workout-player-dialog${standalone ? ' training-page-panel' : ''}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="workout-dialog-title">
@@ -338,7 +382,7 @@ export function WorkoutFlow({
       {workout && stage !== 'finished' && <div className="guided-player">
         <div className="session-progress"><span>{completedCount} of {allSets.length} sets complete</span><span>{Math.round((completedCount / Math.max(allSets.length, 1)) * 100)}%</span></div>
         <div className="session-progress-track"><span style={{ width: `${(completedCount / Math.max(allSets.length, 1)) * 100}%` }} /></div>
-        {stage === 'all-done' && <div className="player-complete-state"><span className="finish-check"><Check size={24} /></span><p>Every set is logged. Take a breath, then save your session.</p><button type="button" className="primary-button dialog-primary" disabled={busy} onClick={finishSession}>{busy ? 'Saving session…' : 'Complete workout'} <ArrowRight size={17} /></button></div>}
+        {stage === 'all-done' && <div className="player-complete-state"><span className="finish-check"><Check size={24} /></span><p>Every planned set is logged. Add one more set of {lastExercise?.name ?? 'this workout'} or save your session.</p><div className="player-complete-actions"><button type="button" className="secondary-button dialog-secondary" disabled={busy || !lastExercise} onClick={continueToAnotherSet}><Plus size={15} aria-hidden="true" /> Continue to another set</button><button type="button" className="primary-button dialog-primary" disabled={busy} onClick={finishSession}>{busy ? 'Saving session…' : 'Complete workout'} <ArrowRight size={17} /></button></div>{error && <p className="form-error" role="alert">{error}</p>}</div>}
         {currentExercise && currentSet && stage !== 'all-done' && <>
           <div className="player-title-row"><div><p className="eyebrow">MOVEMENT {currentStepNumber} OF {totalSteps} <span className="player-dot" /> SET {currentSet.setNumber} OF {currentExercise.workoutSets.length}</p><h3>{currentExercise.name}</h3><p>{currentExercise.focus} · {currentExercise.equipment}</p></div><div className="player-media-controls"><ExerciseVisualGenderToggle gender={visualGender} compact /><span className="coach-match-pill">{tutor.label}</span></div></div>
           <div className={`trainer-screen ${stage === 'rest' ? 'trainer-screen-rest' : ''}`}>
@@ -374,7 +418,7 @@ export function WorkoutFlow({
         </>}
       </div>}
       {timer?.kind === 'rest' && currentExercise && <div className="rest-timer-modal-backdrop" role="presentation"><section className="rest-timer-modal" role="dialog" aria-modal="true" aria-labelledby="rest-timer-heading"><span className="eyebrow">RECOVERY INTERVAL</span><h2 id="rest-timer-heading">Rest and reset</h2><p>Next up: <strong>{currentExercise.name}</strong></p><div className="rest-countdown-ring" role="timer" aria-label={`${timer.seconds} seconds remaining`}><svg viewBox="0 0 160 160" aria-hidden="true"><circle className="rest-ring-track" cx="80" cy="80" r="67" /><circle className="rest-ring-progress" cx="80" cy="80" r="67" style={{ strokeDasharray: `${2 * Math.PI * 67}`, strokeDashoffset: `${2 * Math.PI * 67 * (1 - timer.seconds / timer.durationSeconds)}` }} /></svg><strong>{formatTime(timer.seconds)}</strong></div><div className="rest-timer-actions"><button type="button" className="secondary-button" onClick={toggleTimer}>{timer.paused ? <Play size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}{timer.paused ? 'Resume' : 'Pause'}</button><button type="button" className="primary-button" onClick={skipRest}><SkipForward size={15} aria-hidden="true" /> Skip rest</button></div></section></div>}
-      {stage === 'finished' && <div className="workout-finished"><span className="finish-check"><Check size={24} /></span><p role="status">{levelUp ? `You completed this week’s training goal and advanced to ${labelForExperience(levelUp)}. Your updated plan is ready.` : alreadyAdvancedThisWeek ? 'Your session is saved. You have already advanced this week; you can unlock another level in a future training week.' : 'Your session is saved. Strength, consistency, and how you feel all count as progress.'}</p><button type="button" className="primary-button dialog-primary" onClick={closePlayer}>Back to overview <ArrowRight size={17} /></button></div>}
+      {stage === 'finished' && <div className="workout-finished"><span className="finish-check"><Check size={24} /></span><p role="status">{levelUp ? `You completed this week’s training goal and advanced to ${labelForExperience(levelUp)}. Your updated plan is ready.` : alreadyAdvancedThisWeek ? 'Your session is saved. You have already advanced this week; you can unlock another level in a future training week.' : 'Your session is saved. Strength, consistency, and how you feel all count as progress.'}</p><div className="workout-finished-actions"><button type="button" className="secondary-button" onClick={prepareWorkoutRepeat}><RotateCcw size={15} aria-hidden="true" /> Repeat this workout</button><button type="button" className="primary-button dialog-primary" onClick={closePlayer}>Back to overview <ArrowRight size={17} /></button></div></div>}
     </section>
   </div>
 }

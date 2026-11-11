@@ -112,9 +112,10 @@ export async function updateFitnessPlan(input: { goal: FitnessGoal; experience: 
   return { success: true }
 }
 
-export async function startWorkout(input: { weightKg: number; reflection: string }): Promise<ActiveWorkoutState> {
+export async function startWorkout(input: { weightKg: number; reflection: string; repeatSessionId?: string }): Promise<ActiveWorkoutState> {
   const userId = await getUserId()
   if (!input || typeof input !== 'object') throw new Error('Invalid check-in details.')
+  if (input.repeatSessionId !== undefined && (typeof input.repeatSessionId !== 'string' || input.repeatSessionId.length < 1 || input.repeatSessionId.length > 80)) throw new Error('Invalid workout to repeat.')
   if (!isValidNumber(input.weightKg, 20, 500)) throw new Error('Enter a valid weight in kilograms before starting.')
   const reflection = typeof input.reflection === 'string' ? input.reflection.trim() : ''
   if (reflection.length < 3 || reflection.length > 1000) throw new Error('Add a short progress reflection before starting.')
@@ -148,6 +149,19 @@ export async function startWorkout(input: { weightKg: number; reflection: string
     eq(fitnessCustomRoutines.id, activePlanId(userId)),
     eq(fitnessCustomRoutines.userId, userId),
   )).limit(1)
+  const [repeatSource] = input.repeatSessionId
+    ? await db.select().from(workoutSessions).where(and(
+      eq(workoutSessions.id, input.repeatSessionId),
+      eq(workoutSessions.userId, userId),
+      eq(workoutSessions.status, 'completed'),
+    )).limit(1)
+    : [null]
+  if (input.repeatSessionId && !repeatSource) throw new Error('This completed workout is no longer available to repeat.')
+  const repeatSets = repeatSource
+    ? await db.select().from(workoutSets)
+      .where(and(eq(workoutSets.sessionId, repeatSource.id), eq(workoutSets.userId, userId)))
+      .orderBy(asc(workoutSets.setNumber))
+    : []
 
   const [weeklyCount] = await db.select({ total: count() }).from(workoutSessions).where(and(
     eq(workoutSessions.userId, userId),
@@ -156,21 +170,55 @@ export async function startWorkout(input: { weightKg: number; reflection: string
     lt(workoutSessions.startedAt, nextWeekStart),
   ))
   const workoutIndex = Number(weeklyCount?.total ?? 0)
-  const plan = buildCustomRoutinePlan(activePlan) ?? []
-  const selectedPlan = plan.length ? plan : buildWorkoutPlan(profile, workoutIndex)
+  const plan = buildCustomRoutinePlan(activePlan)
+  const sourceExerciseIds = new Set(repeatSets.map((set) => set.exerciseId))
+  const customPlanMatches = Boolean(repeatSource && plan.length && (
+    repeatSource.sessionName === activePlan?.name
+    || (plan.length === sourceExerciseIds.size && plan.every((exercise) => sourceExerciseIds.has(exercise.id)))
+  ))
+  const repeatLetter = repeatSource ? /^Full-body strength ([A-Z])$/.exec(repeatSource.sessionName)?.[1] : undefined
+  const repeatIndex = repeatLetter ? repeatLetter.charCodeAt(0) - 'A'.charCodeAt(0) : workoutIndex
+  let selectedPlan = repeatSource
+    ? customPlanMatches ? plan : buildWorkoutPlan(profile, repeatIndex)
+    : plan.length ? plan : buildWorkoutPlan(profile, workoutIndex)
+
+  if (repeatSource) {
+    if (!repeatSets.length || selectedPlan.length !== sourceExerciseIds.size || selectedPlan.some((exercise) => !sourceExerciseIds.has(exercise.id))) {
+      throw new Error('This workout plan is no longer available to repeat.')
+    }
+    selectedPlan = selectedPlan.map((exercise) => {
+      const previousSets = repeatSets.filter((set) => set.exerciseId === exercise.id)
+      const targets = previousSets.map((set) => set.targetReps)
+      return {
+        ...exercise,
+        sets: previousSets.length,
+        repMin: Math.min(...targets),
+        repMax: Math.max(...targets),
+      }
+    })
+  }
+
   const sessionId = randomUUID()
-  const sessionName = plan.length ? activePlan?.name ?? 'Custom workout' : `Full-body strength ${String.fromCharCode(65 + (workoutIndex % 3))}`
-  const planned = selectedPlan.map((exercise) => ({
-    ...exercise,
-    workoutSets: Array.from({ length: exercise.sets }, (_, index) => ({
-      id: randomUUID(),
-      setNumber: index + 1,
-      targetReps: exercise.repMax,
-      repsCompleted: null,
-      weightKg: null,
-      completed: false,
-    })),
-  }))
+  const sessionName = repeatSource?.sessionName ?? (plan.length ? activePlan?.name ?? 'Custom workout' : `Full-body strength ${String.fromCharCode(65 + (workoutIndex % 3))}`)
+  const planned = selectedPlan.map((exercise) => {
+    const previousSets = repeatSource
+      ? repeatSets.filter((set) => set.exerciseId === exercise.id).sort((a, b) => a.setNumber - b.setNumber)
+      : []
+    const setTargets = repeatSource
+      ? previousSets.map((set) => set.targetReps)
+      : Array.from({ length: exercise.sets }, () => exercise.repMax)
+    return {
+      ...exercise,
+      workoutSets: setTargets.map((targetReps, index) => ({
+        id: randomUUID(),
+        setNumber: index + 1,
+        targetReps,
+        repsCompleted: null,
+        weightKg: null,
+        completed: false,
+      })),
+    }
+  })
 
   await db.transaction(async (tx) => {
     await tx.insert(fitnessCheckins).values({
@@ -183,7 +231,7 @@ export async function startWorkout(input: { weightKg: number; reflection: string
     await tx.insert(workoutSessions).values({
       id: sessionId,
       userId,
-      programKey: `${profile.goal}:${profile.environment}:${profile.experience}:full-body`,
+      programKey: repeatSource?.programKey ?? `${profile.goal}:${profile.environment}:${profile.experience}:full-body`,
       sessionName,
       status: 'in_progress',
       startedAt,
@@ -234,6 +282,58 @@ export async function updateWorkoutSet(input: {
 
   revalidatePath('/')
   return { success: true }
+}
+
+export async function addWorkoutSet(input: { sessionId: string; exerciseId: string }): Promise<WorkoutSetState> {
+  const userId = await getUserId()
+  if (!input || typeof input !== 'object'
+    || typeof input.sessionId !== 'string' || input.sessionId.length > 80
+    || typeof input.exerciseId !== 'string' || input.exerciseId.length > 120) {
+    throw new Error('Invalid workout set.')
+  }
+
+  const addedSet = await db.transaction(async (tx) => {
+    const [activeSession] = await tx.select({ id: workoutSessions.id }).from(workoutSessions)
+      .where(and(eq(workoutSessions.id, input.sessionId), eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress')))
+      .limit(1)
+    if (!activeSession) throw new Error('This workout is no longer active.')
+
+    const [unfinished] = await tx.select({ total: count() }).from(workoutSets)
+      .where(and(eq(workoutSets.userId, userId), eq(workoutSets.sessionId, input.sessionId), eq(workoutSets.completed, false)))
+    if (Number(unfinished?.total ?? 0) > 0) throw new Error('Complete every planned set before adding another.')
+
+    const [lastSet] = await tx.select().from(workoutSets)
+      .where(and(eq(workoutSets.userId, userId), eq(workoutSets.sessionId, input.sessionId), eq(workoutSets.exerciseId, input.exerciseId)))
+      .orderBy(desc(workoutSets.setNumber))
+      .limit(1)
+    if (!lastSet?.completed) throw new Error('Complete the exercise before adding another set.')
+    if (lastSet.setNumber >= 20) throw new Error('This movement already has the maximum number of sets.')
+
+    const id = randomUUID()
+    await tx.insert(workoutSets).values({
+      id,
+      userId,
+      sessionId: input.sessionId,
+      exerciseId: lastSet.exerciseId,
+      exerciseName: lastSet.exerciseName,
+      setNumber: lastSet.setNumber + 1,
+      targetReps: lastSet.targetReps,
+      actualReps: null,
+      weightKg: null,
+      completed: false,
+    })
+    return {
+      id,
+      setNumber: lastSet.setNumber + 1,
+      targetReps: lastSet.targetReps,
+      repsCompleted: null,
+      weightKg: null,
+      completed: false,
+    }
+  })
+
+  revalidatePath('/')
+  return addedSet
 }
 
 export async function completeWorkout(sessionId: string) {
