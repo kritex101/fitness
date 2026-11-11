@@ -1,13 +1,11 @@
 'use client'
 
 import { Dumbbell, Play } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import useSWR from 'swr'
 import { InlineVideoPlayer } from '@/components/inline-video-player'
-import type { ExerciseMediaResponse, ExerciseMediaSource } from '@/lib/exercise-media-types'
+import type { ExerciseMediaResponse } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
-
-const validSources: ExerciseMediaSource[] = ['musclewiki', 'workoutx', 'exercisedb', 'ninjas']
 
 async function fetchExerciseMedia(url: string): Promise<ExerciseMediaResponse> {
   const response = await fetch(url, { cache: 'no-store' })
@@ -15,27 +13,25 @@ async function fetchExerciseMedia(url: string): Promise<ExerciseMediaResponse> {
   if (providerStatuses) {
     try {
       const statuses = JSON.parse(providerStatuses) as Array<{ provider: string; stage: string; status: number | string }>
-      console.log('[v0] Exercise media provider HTTP statuses:', statuses.map(({ provider, stage, status }) => `${provider} ${stage}: ${status}`).join(', '))
+      console.log('[v0] MuscleWiki video API statuses:', statuses.map(({ stage, status }) => `${stage}: ${status}`).join(', '))
     } catch {
-      console.log('[v0] Exercise media provider status header was invalid')
+      console.log('[v0] MuscleWiki video API status header was invalid')
     }
-  } else {
-    console.log(`[v0] Exercise media proxy HTTP ${response.status}`)
   }
 
   const payload = await response.json().catch(() => null) as (ExerciseMediaResponse & { error?: string }) | null
-  if (!response.ok) throw new Error(payload?.error ?? `Media request failed with HTTP ${response.status}.`)
-  if (!payload || typeof payload.videoUrl !== 'string' || !validSources.includes(payload.source) || !['video', 'gif', 'image'].includes(payload.mediaType)) {
-    throw new Error('Media response was incomplete.')
+  if (!response.ok) throw new Error(payload?.error ?? `MuscleWiki video request failed with HTTP ${response.status}.`)
+  if (!payload || typeof payload.videoUrl !== 'string' || payload.source !== 'musclewiki' || payload.mediaType !== 'video') {
+    throw new Error('MuscleWiki returned an incomplete video response.')
   }
   return payload
 }
 
 function MovementPreviewPlaceholder({ loading, error, onRetry }: { loading: boolean; error?: string; onRetry?: () => void }) {
-  const title = loading ? 'Finding a movement demo' : error ? 'Demonstration unavailable' : 'Movement preview'
+  const title = loading ? 'Finding a MuscleWiki video' : error ? 'MuscleWiki video unavailable' : 'Movement preview'
   const description = loading
-    ? 'Checking for a matching exercise video.'
-    : error ?? 'Load the matching demonstration when you are ready.'
+    ? 'Checking for a matching MuscleWiki exercise video.'
+    : error ?? 'Load the matching MuscleWiki video when you are ready.'
 
   return (
     <div className="exercise-media-frame exercise-media-frame-placeholder" role={error ? 'alert' : 'status'}>
@@ -81,55 +77,31 @@ export function ExerciseMediaGallery({
 }) {
   const [isOpen, setIsOpen] = useState(autoLoad)
   const [retryVersion, setRetryVersion] = useState(0)
-  const [loadedMediaKey, setLoadedMediaKey] = useState('')
-  const [failedMediaState, setFailedMediaState] = useState<{ mediaKey: string; sources: ExerciseMediaSource[] }>({ mediaKey: '', sources: [] })
-  const mediaKey = `${exerciseName}:${gender}`
-  const failedSources = failedMediaState.mediaKey === mediaKey ? failedMediaState.sources : []
   const params = new URLSearchParams({ name: exerciseName, gender })
-  if (failedSources.length) params.set('exclude', failedSources.join(','))
   if (retryVersion > 0) params.set('attempt', String(retryVersion))
+
   const { data, error, isLoading, mutate } = useSWR<ExerciseMediaResponse, Error>(isOpen ? `/api/media?${params.toString()}` : null, fetchExerciseMedia, {
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     shouldRetryOnError: false,
   })
-  const media = data && !failedSources.includes(data.source) ? data : null
-  const mediaRenderKey = media ? `${mediaKey}:${media.source}:${media.videoUrl}` : ''
-  const isImage = media ? media.mediaType === 'image' || media.source === 'ninjas' : false
-  const isGif = media ? media.mediaType === 'gif' || media.source === 'exercisedb' || /\.gif(?:$|[?#])/i.test(media.videoUrl) : false
-  const instructions = media?.source === 'musclewiki' && media.instructions?.length ? media.instructions : fallbackInstructions
-
-  const failSource = useCallback((source: ExerciseMediaSource) => {
-    setLoadedMediaKey('')
-    setFailedMediaState((current) => {
-      const sources = current.mediaKey === mediaKey ? current.sources : []
-      if (sources.includes(source)) return current
-      return { mediaKey, sources: [...sources, source] }
-    })
-  }, [mediaKey])
-
-  useEffect(() => {
-    if (!media || loadedMediaKey === mediaRenderKey || (!isImage && !isGif)) return
-    const timeout = window.setTimeout(() => failSource(media.source), 12_000)
-    return () => window.clearTimeout(timeout)
-  }, [failSource, isGif, isImage, loadedMediaKey, media, mediaRenderKey])
-
-  const markMediaLoaded = useCallback(() => {
-    if (mediaRenderKey) setLoadedMediaKey(mediaRenderKey)
-  }, [mediaRenderKey])
 
   const retryMedia = useCallback(() => {
-    setFailedMediaState({ mediaKey, sources: [] })
-    setLoadedMediaKey('')
     setRetryVersion((version) => version + 1)
     void mutate()
-  }, [mediaKey, mutate])
+  }, [mutate])
+
+  const media = data ?? null
+  const instructions = media?.instructions?.length ? media.instructions : fallbackInstructions
+  const mediaDescription = media?.angle
+    ? `${media.angle} camera angle · ${media.gender ?? gender} model`
+    : `${gender} model`
 
   if (!isOpen) {
     return (
-      <div className="exercise-media-gallery" aria-label={`${gender}-model exercise demonstrations`}>
-        <button type="button" className="exercise-media-load" onClick={() => setIsOpen(true)}><Play size={14} aria-hidden="true" /> Load {gender}-model demonstration</button>
+      <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
+        <button type="button" className="exercise-media-load" onClick={() => setIsOpen(true)}><Play size={14} aria-hidden="true" /> Load MuscleWiki video</button>
         {showInstructions && <ExerciseInstructions instructions={fallbackInstructions} />}
       </div>
     )
@@ -137,71 +109,30 @@ export function ExerciseMediaGallery({
 
   if (!media) {
     return (
-      <div className="exercise-media-gallery" aria-label={`${gender}-model exercise demonstrations`}>
+      <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
         <MovementPreviewPlaceholder loading={isLoading} error={error?.message} onRetry={!isLoading ? retryMedia : undefined} />
         {showInstructions && <ExerciseInstructions instructions={fallbackInstructions} />}
       </div>
     )
   }
 
-  const attribution = media.source === 'musclewiki'
-    ? 'Exercise media and instructions provided by MuscleWiki. MuscleWiki retains rights to its branded materials.'
-    : null
-  const providerName = media.source === 'exercisedb' ? 'ExerciseDB' : media.source === 'musclewiki' ? 'MuscleWiki' : media.source === 'ninjas' ? 'API Ninjas' : 'WorkoutX'
-  const mediaDescription = media.source === 'musclewiki' && media.gender && media.angle
-    ? `${media.angle} camera angle · ${media.gender} model`
-    : isImage
-      ? 'Movement reference frames (not animated)'
-      : isGif
-        ? 'Animated GIF'
-        : 'Video demonstration'
-
   return (
-    <div className="exercise-media-gallery" aria-label={`${gender}-model exercise demonstrations`}>
+    <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
       <div className="exercise-media-list">
         <figure className="exercise-media-card">
-          {isImage && media.imageUrls && media.imageUrls.length > 1 ? (
-            <div className="exercise-media-frame">
-              <div className="exercise-media-image-sequence">
-                {media.imageUrls.map((imageUrl, index) => (
-                  <img
-                    key={imageUrl}
-                    className="exercise-media-player"
-                    src={imageUrl}
-                    alt={`${exerciseName} demonstration frame ${index + 1}`}
-                    loading="eager"
-                    onLoad={markMediaLoaded}
-                    onError={() => failSource(media.source)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : isImage || isGif ? (
-            <div className="exercise-media-frame">
-              <img
-                className="exercise-media-player"
-                src={media.videoUrl}
-                alt={isGif ? `${exerciseName} animated exercise demonstration` : `${exerciseName} exercise reference image`}
-                loading="eager"
-                onLoad={markMediaLoaded}
-                onError={() => failSource(media.source)}
-              />
-            </div>
-          ) : (
-            <InlineVideoPlayer
-              key={mediaRenderKey}
-              src={media.videoUrl}
-              poster={media.posterUrl}
-              title={`${media.exerciseName ?? exerciseName} demonstration`}
-              description={mediaDescription}
-              className="exercise-inline-player"
-              onRetry={retryMedia}
-            />
-          )}
+          <InlineVideoPlayer
+            key={`${exerciseName}:${gender}:${media.videoUrl}`}
+            src={media.videoUrl}
+            poster={media.posterUrl}
+            title={`${media.exerciseName ?? exerciseName} MuscleWiki demonstration`}
+            description={mediaDescription}
+            className="exercise-inline-player"
+            onRetry={retryMedia}
+          />
           <figcaption className="exercise-media-caption">
-            <strong>{providerName}</strong>
+            <strong>MuscleWiki</strong>
             <span>{mediaDescription}</span>
-            {attribution && <small className="exercise-media-attribution">{attribution}</small>}
+            <small className="exercise-media-attribution">Video and branded media provided by MuscleWiki, which retains rights to its content and trademarks.</small>
           </figcaption>
         </figure>
       </div>

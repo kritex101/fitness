@@ -30,7 +30,7 @@ export default async function ExerciseLibraryPage() {
         <div>
           <p className="eyebrow">MOVEMENT REFERENCE</p>
           <h1>Exercise library</h1>
-          <p>Search live ExerciseDB movements by target muscle or name. Each result pairs its instructions and equipment details with a matching gender-specific demonstration or animation.</p>
+          <p>Search live ExerciseDB movements by target muscle or name. Each result pairs its instructions and equipment details with a matching gender-specific video streamed from MuscleWiki.</p>
           <p className="exercise-catalog-disclosure"><strong>MuscleWiki attribution:</strong> When a demonstration is sourced from MuscleWiki, its video and branded media are provided by MuscleWiki; MuscleWiki retains rights to its content and trademarks.</p>
         </div>
         <span className="exercise-catalog-count"><Dumbbell size={16} aria-hidden="true" />ExerciseDB</span>
