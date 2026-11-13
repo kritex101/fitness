@@ -234,6 +234,10 @@ export function ExerciseMediaGallery({
             <strong>WorkoutX</strong>
             <span>Static exercise photo illustration</span>
           </figcaption>
+          <figcaption className="exercise-media-caption">
+           <strong>FitPilot Exercise Library</strong>
+            <span>Saved image · Available without an image API</span>
+          </figcaption>
         </figure>
       </div>
       {showInstructions && <ExerciseInstructions instructions={instructions} />}
