@@ -5,8 +5,8 @@ import { FitnessOnboarding } from '@/components/fitness-onboarding'
 import { FitPilotDashboard } from '@/components/fitpilot-dashboard'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { fitnessCheckins, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
-import { buildWorkoutPlan, type ActivityLevel, type FitnessProfile, type GenderIdentity, type FitnessGoal, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
+import { fitnessCheckins, fitnessCustomRoutines, fitnessMetricSnapshots, fitnessProfiles, workoutSessions, workoutSets } from '@/lib/db/schema'
+import { activePlanId, buildCustomRoutinePlan, buildWorkoutPlan, type ActivityLevel, type CustomRoutine, type FitnessProfile, type GenderIdentity, type FitnessGoal, type ExperienceLevel, type MetricSnapshot, type TrainingEnvironment } from '@/lib/fitness-data'
 
 export default async function Page() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -28,12 +28,22 @@ export default async function Page() {
     environment: profileRow.environment as TrainingEnvironment,
   }
 
-  const [checkinRows, sessionRows, activeRow, metricRows] = await Promise.all([
+  const [checkinRows, sessionRows, activeRow, metricRows, activePlanRows] = await Promise.all([
     db.select().from(fitnessCheckins).where(eq(fitnessCheckins.userId, userId)).orderBy(desc(fitnessCheckins.createdAt)),
     db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)).orderBy(desc(workoutSessions.startedAt)),
     db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'in_progress'))).orderBy(desc(workoutSessions.startedAt)).limit(1),
     db.select().from(fitnessMetricSnapshots).where(eq(fitnessMetricSnapshots.userId, userId)).orderBy(desc(fitnessMetricSnapshots.createdAt)).limit(90),
+    db.select().from(fitnessCustomRoutines).where(and(eq(fitnessCustomRoutines.id, activePlanId(userId)), eq(fitnessCustomRoutines.userId, userId))).limit(1),
   ])
+
+  const activePlanRow = activePlanRows[0]
+  const activePlan: CustomRoutine | null = activePlanRow ? {
+    id: activePlanRow.id,
+    name: activePlanRow.name,
+    exercises: activePlanRow.exercises,
+    createdAt: activePlanRow.createdAt.toISOString(),
+    updatedAt: activePlanRow.updatedAt.toISOString(),
+  } : null
 
   let activeWorkout = null
   if (activeRow[0]) {
@@ -41,7 +51,7 @@ export default async function Page() {
     const savedSets = await db.select().from(workoutSets)
       .where(and(eq(workoutSets.sessionId, activeSession.id), eq(workoutSets.userId, userId)))
       .orderBy(asc(workoutSets.setNumber))
-    const plan = buildWorkoutPlan(profile)
+    const plan = activePlan ? buildCustomRoutinePlan(activePlan) : buildWorkoutPlan(profile)
     activeWorkout = {
       id: activeSession.id,
       sessionName: activeSession.sessionName,
@@ -76,6 +86,7 @@ export default async function Page() {
       createdAt: row.createdAt.toISOString(),
     }))}
     activeWorkout={activeWorkout}
+    activePlan={activePlan}
     email={session.user.email}
   />
 }

@@ -1,9 +1,11 @@
-export type ExerciseMediaSource = 'musclewiki' | 'workoutx' | 'exercisedb' | 'ninjas'
-export type ExerciseMediaType = 'video' | 'gif' | 'image'
+import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
 export type ExerciseMediaResponse = {
-  videoUrl: string
-  source: ExerciseMediaSource
-  mediaType: ExerciseMediaType
-  imageUrls?: string[]
+  imageUrl: string
+  source: 'workoutx'
+  mediaType: 'image'
+  exerciseId?: string
+  exerciseName?: string
+  gender?: ExerciseVisualGender
+  instructions?: string[]
 }

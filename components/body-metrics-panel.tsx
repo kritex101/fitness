@@ -39,7 +39,7 @@ export function BodyMetricsPanel({ profile, snapshots }: { profile: FitnessProfi
   const chartData = useMemo(() => [...history]
     .sort((first, second) => new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime())
     .map((snapshot) => ({
-      date: new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(snapshot.createdAt)),
+      date: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(snapshot.createdAt)),
       bmi: snapshot.bmi,
       calories: snapshot.dailyCalorieTarget,
     })), [history])

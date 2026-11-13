@@ -8,6 +8,8 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 export type VoicePreferences = {
   enabled: boolean
   voiceURI: string
+  voiceName: string
+  voiceLang: string
   pitch: number
   rate: number
   volume: number
@@ -21,7 +23,7 @@ export type AppPreferences = {
 const STORAGE_KEY = 'fitpilot-settings-v1'
 const DEFAULT_PREFERENCES: AppPreferences = {
   theme: 'system',
-  voice: { enabled: true, voiceURI: '', pitch: 1, rate: 1, volume: 100 },
+  voice: { enabled: true, voiceURI: '', voiceName: '', voiceLang: '', pitch: 1, rate: 1, volume: 100 },
 }
 
 const SettingsContext = createContext<{
@@ -49,6 +51,8 @@ function readPreferences(): AppPreferences {
       voice: {
         enabled: typeof voice.enabled === 'boolean' ? voice.enabled : true,
         voiceURI: typeof voice.voiceURI === 'string' ? voice.voiceURI.slice(0, 512) : '',
+        voiceName: typeof voice.voiceName === 'string' ? voice.voiceName.slice(0, 256) : '',
+        voiceLang: typeof voice.voiceLang === 'string' ? voice.voiceLang.slice(0, 64) : '',
         pitch: clamp(voice.pitch, 0.5, 1.5, 1),
         rate: clamp(voice.rate, 0.5, 2, 1),
         volume: clamp(voice.volume, 0, 100, 100),
@@ -88,10 +92,19 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
     const synthesis = window.speechSynthesis
     setSpeechSupported(typeof synthesis.speak === 'function' && typeof synthesis.cancel === 'function' && typeof SpeechSynthesisUtterance !== 'undefined')
-    const updateVoices = () => setVoices(synthesis.getVoices())
+    const updateVoices = () => {
+      try {
+        setVoices(synthesis.getVoices())
+      } catch {
+        setVoices([])
+      }
+    }
     updateVoices()
-    synthesis.addEventListener('voiceschanged', updateVoices)
-    return () => synthesis.removeEventListener('voiceschanged', updateVoices)
+    const previousHandler = synthesis.onvoiceschanged
+    synthesis.onvoiceschanged = updateVoices
+    return () => {
+      if (synthesis.onvoiceschanged === updateVoices) synthesis.onvoiceschanged = previousHandler
+    }
   }, [])
 
   const setTheme = useCallback((theme: ThemePreference) => {

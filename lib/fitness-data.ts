@@ -113,6 +113,21 @@ export type PlannedExercise = Exercise & {
   restSeconds: number
 }
 
+export type CustomRoutineExercise = {
+  exerciseId: string
+  sets: number
+  reps: number
+  restSeconds: number
+}
+
+export type CustomRoutine = {
+  id: string
+  name: string
+  exercises: CustomRoutineExercise[]
+  createdAt: string
+  updatedAt: string
+}
+
 const baseExerciseLibrary: Omit<Exercise, 'category'>[] = [
   {
     id: 'goblet-squat',
@@ -373,6 +388,24 @@ const workoutRotations: Record<TrainingEnvironment, string[][]> = {
     ['reverse-lunges', 'push-ups', 'romanian-deadlift', 'dumbbell-shoulder-press', 'bird-dog'],
     ['step-ups', 'push-ups', 'dumbbell-row', 'glute-bridge', 'bird-dog']
   ],
+}
+
+export function activePlanId(userId: string) {
+  return `${userId}:active-plan`
+}
+
+export function buildCustomRoutinePlan(routine: Pick<CustomRoutine, 'exercises'> | null | undefined): PlannedExercise[] {
+  if (!routine) return []
+  return routine.exercises.flatMap((prescription) => {
+    const exercise = exerciseLibrary.find((item) => item.id === prescription.exerciseId)
+    return exercise ? [{
+      ...exercise,
+      sets: prescription.sets,
+      repMin: prescription.reps,
+      repMax: prescription.reps,
+      restSeconds: prescription.restSeconds,
+    }] : []
+  })
 }
 
 export function buildWorkoutPlan(profile: Pick<FitnessProfile, 'goal' | 'experience' | 'environment'>, workoutIndex = 0): PlannedExercise[] {

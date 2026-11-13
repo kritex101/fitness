@@ -11,7 +11,7 @@ import { fitnessProfiles } from '@/lib/db/schema'
 
 export const metadata: Metadata = {
   title: 'Exercise Library | FitPilot',
-  description: 'Browse ExerciseDB movements by target muscle or name, review instructions and equipment, and watch matching demonstrations.',
+  description: 'Browse WorkoutX exercises by target muscle or name and view gender-matched static photo illustrations.',
 }
 
 export default async function ExerciseLibraryPage() {
@@ -30,9 +30,10 @@ export default async function ExerciseLibraryPage() {
         <div>
           <p className="eyebrow">MOVEMENT REFERENCE</p>
           <h1>Exercise library</h1>
-          <p>Search live ExerciseDB movements by target muscle or name. Each result pairs its instructions and equipment details with a matching gender-specific demonstration or animation.</p>
+          <p>Search the WorkoutX exercise catalog by target muscle or name. Each movement includes its instructions, equipment details, and a static photo illustration.</p>
+          <p className="exercise-catalog-disclosure">Exercise illustrations are loaded directly from WorkoutX. This library displays photos only; it does not play exercise videos.</p>
         </div>
-        <span className="exercise-catalog-count"><Dumbbell size={16} aria-hidden="true" />ExerciseDB</span>
+        <span className="exercise-catalog-count"><Dumbbell size={16} aria-hidden="true" />WorkoutX</span>
       </header>
       <section aria-label="Browse exercise demonstrations">
         <ExerciseLibrary exercises={[]} initialCollection="all" initialVisualGender={initialVisualGender} />

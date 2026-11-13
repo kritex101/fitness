@@ -2,22 +2,12 @@
 
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
-export function ExerciseVisualGenderToggle({
-  gender,
-  onChange,
-  compact = false,
-}: {
-  gender: ExerciseVisualGender
-  onChange: (gender: ExerciseVisualGender) => void
-  compact?: boolean
-}) {
+export function ExerciseVisualGenderToggle({ gender, compact = false }: { gender: ExerciseVisualGender; compact?: boolean }) {
+  const label = gender === 'female' ? 'Female' : 'Male'
   return (
-    <div className={`exercise-visual-gender-toggle ${compact ? 'exercise-visual-gender-compact' : ''}`} role="group" aria-label="Choose gender presentation for exercise visuals">
-      <span className="exercise-visual-gender-label">Demo visuals</span>
-      <div className="exercise-visual-gender-options">
-        <button type="button" aria-pressed={gender === 'male'} onClick={() => onChange('male')}>Male</button>
-        <button type="button" aria-pressed={gender === 'female'} onClick={() => onChange('female')}>Female</button>
-      </div>
+    <div className={`exercise-visual-gender-toggle ${compact ? 'exercise-visual-gender-compact' : ''}`} aria-label={`${label} demonstrations are locked to your account profile`}>
+      <span className="exercise-visual-gender-label">Account-locked demos</span>
+      <span className="exercise-visual-gender-options" aria-current="true">{label}</span>
     </div>
   )
 }
