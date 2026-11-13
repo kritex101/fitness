@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Dumbbell, Image as ImageIcon } from 'lucide-react'
