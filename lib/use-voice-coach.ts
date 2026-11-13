@@ -8,6 +8,14 @@ type VoiceCoachOptions = {
   gender: ExerciseVisualGender
 }
 
+const MAX_REMOTE_TEXT_LENGTH = 1200
+const REMOTE_TIMEOUT_MS = 6_000
+const MAX_CACHED_CLIPS = 40
+const TEST_PHRASE = 'Your next set starts now. Keep your movement steady and breathe.'
+
+let remoteVoiceUnavailable = false
+const remoteClipCache = new Map<string, string>()
+
 const voiceNameMatchers: Record<ExerciseVisualGender, RegExp> = {
   female: /\b(female|woman|samantha|zira|victoria|karen|moira|tessa|susan|ava|aria)\b/i,
   male: /\b(male|man|david|daniel|mark|alex|fred|jorge|rishi|liam)\b/i,
@@ -50,6 +58,16 @@ function splitIntoSentences(text: string) {
   return text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? []
 }
 
+function cacheRemoteClip(key: string, url: string) {
+  remoteClipCache.set(key, url)
+  if (remoteClipCache.size <= MAX_CACHED_CLIPS) return
+  const oldestKey = remoteClipCache.keys().next().value
+  if (oldestKey === undefined) return
+  const oldestUrl = remoteClipCache.get(oldestKey)
+  if (oldestUrl) URL.revokeObjectURL(oldestUrl)
+  remoteClipCache.delete(oldestKey)
+}
+
 export function useVoiceCoach({ gender }: VoiceCoachOptions) {
   const { preferences, voices, speechSupported, updateVoice } = useAppSettings()
   const enabled = preferences.voice.enabled
@@ -57,6 +75,8 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
   const activeUtterances = useRef<SpeechSynthesisUtterance[]>([])
   const pendingSpeechStart = useRef<number | null>(null)
   const speechGeneration = useRef(0)
+  const remoteRequest = useRef<AbortController | null>(null)
+  const remoteAudio = useRef<HTMLAudioElement | null>(null)
 
   const stop = useCallback(() => {
     speechGeneration.current += 1
@@ -64,6 +84,9 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
       window.clearTimeout(pendingSpeechStart.current)
       pendingSpeechStart.current = null
     }
+    remoteRequest.current?.abort()
+    remoteRequest.current = null
+    remoteAudio.current?.pause()
     activeUtterances.current = []
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
@@ -75,24 +98,63 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
     updateVoice({ enabled: !enabled })
   }, [enabled, stop, updateVoice])
 
-  const speakText = useCallback((text: string) => {
-    if (!enabled || !supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
+  const playRemoteSpeech = useCallback(async (text: string, generation: number) => {
+    if (remoteVoiceUnavailable || text.length > MAX_REMOTE_TEXT_LENGTH || typeof Audio === 'undefined') return false
 
-    const synthesis = window.speechSynthesis
-    if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function') return
+    const cacheKey = `${gender}:${text}`
+    let clipUrl = remoteClipCache.get(cacheKey)
+    if (!clipUrl) {
+      const controller = new AbortController()
+      remoteRequest.current = controller
+      const timeoutId = window.setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS)
+      try {
+        const response = await fetch('/api/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, gender }),
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          if (response.status === 503) remoteVoiceUnavailable = true
+          return false
+        }
+        const clip = await response.blob()
+        if (clip.size === 0) return false
+        clipUrl = URL.createObjectURL(clip)
+        cacheRemoteClip(cacheKey, clipUrl)
+      } catch {
+        return false
+      } finally {
+        window.clearTimeout(timeoutId)
+        if (remoteRequest.current === controller) remoteRequest.current = null
+      }
+    }
 
-    const sentences = splitIntoSentences(cleanSpeechText(text))
-    if (sentences.length === 0) return
+    if (generation !== speechGeneration.current) return false
+    const audio = remoteAudio.current ?? new Audio()
+    remoteAudio.current = audio
+    audio.src = clipUrl
+    audio.volume = Math.min(1, Math.max(0, preferences.voice.volume / 100))
+    audio.defaultPlaybackRate = preferences.voice.rate
+    audio.playbackRate = preferences.voice.rate
+    try {
+      await audio.play()
+      return true
+    } catch {
+      return false
+    }
+  }, [gender, preferences.voice.rate, preferences.voice.volume])
 
-    stop()
-    const requestGeneration = speechGeneration.current
+  const speakWithBrowser = useCallback((sentences: string[], generation: number) => {
+    if (!supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
+
     pendingSpeechStart.current = window.setTimeout(() => {
       pendingSpeechStart.current = null
-      if (requestGeneration !== speechGeneration.current || !enabled || document.visibilityState === 'hidden') return
+      if (generation !== speechGeneration.current || document.visibilityState === 'hidden') return
 
-      const readySynthesis = window.speechSynthesis
-      if (!readySynthesis || typeof readySynthesis.cancel !== 'function' || typeof readySynthesis.speak !== 'function' || typeof readySynthesis.getVoices !== 'function') return
-      const availableVoices = readySynthesis.getVoices()
+      const synthesis = window.speechSynthesis
+      if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function' || typeof synthesis.getVoices !== 'function') return
+      const availableVoices = synthesis.getVoices()
       const voice = selectedVoice(availableVoices, preferences.voice) ?? selectedVoice(voices, preferences.voice) ?? preferredVoice(availableVoices.length ? availableVoices : voices, gender)
       const utterances = sentences.map((sentence) => {
         const utterance = new SpeechSynthesisUtterance(sentence)
@@ -110,7 +172,7 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
       activeUtterances.current = utterances
 
       const speakNextSentence = (index: number) => {
-        if (requestGeneration !== speechGeneration.current) return
+        if (generation !== speechGeneration.current) return
         if (index >= utterances.length) {
           activeUtterances.current = []
           return
@@ -119,10 +181,10 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
         const utterance = utterances[index]
         utterance.onend = () => speakNextSentence(index + 1)
         utterance.onerror = () => {
-          if (requestGeneration === speechGeneration.current) speakNextSentence(index + 1)
+          if (generation === speechGeneration.current) speakNextSentence(index + 1)
         }
         try {
-          readySynthesis.speak(utterance)
+          synthesis.speak(utterance)
         } catch {
           activeUtterances.current = []
         }
@@ -130,34 +192,29 @@ export function useVoiceCoach({ gender }: VoiceCoachOptions) {
 
       speakNextSentence(0)
     }, 50)
-  }, [enabled, gender, preferences.voice, stop, supported, voices])
+  }, [gender, preferences.voice, supported, voices])
+
+  const speak = useCallback(async (text: string) => {
+    if (typeof window === 'undefined') return
+    const cleanedText = cleanSpeechText(text)
+    const sentences = splitIntoSentences(cleanedText)
+    if (sentences.length === 0) return
+
+    stop()
+    const generation = speechGeneration.current
+    const playedRemotely = await playRemoteSpeech(cleanedText, generation)
+    if (playedRemotely || generation !== speechGeneration.current) return
+    speakWithBrowser(sentences, generation)
+  }, [playRemoteSpeech, speakWithBrowser, stop])
+
+  const speakText = useCallback((text: string) => {
+    if (!enabled) return
+    void speak(text)
+  }, [enabled, speak])
 
   const testVoice = useCallback(() => {
-    if (!supported || typeof window === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
-    const synthesis = window.speechSynthesis
-    if (!synthesis || typeof synthesis.cancel !== 'function' || typeof synthesis.speak !== 'function') return
-    stop()
-    const availableVoices = synthesis.getVoices()
-    const voice = selectedVoice(availableVoices, preferences.voice) ?? selectedVoice(voices, preferences.voice) ?? preferredVoice(availableVoices.length ? availableVoices : voices, gender)
-    const utterance = new SpeechSynthesisUtterance('Your next set starts now. Keep your movement steady and breathe.')
-    if (voice) {
-      utterance.voice = voice
-      utterance.lang = voice.lang
-    } else {
-      utterance.lang = navigator.language || 'en-US'
-    }
-    utterance.rate = preferences.voice.rate
-    utterance.pitch = preferences.voice.pitch
-    utterance.volume = preferences.voice.volume / 100
-    activeUtterances.current = [utterance]
-    utterance.onend = () => { activeUtterances.current = [] }
-    utterance.onerror = () => { activeUtterances.current = [] }
-    try {
-      synthesis.speak(utterance)
-    } catch {
-      activeUtterances.current = []
-    }
-  }, [gender, preferences.voice, stop, supported, voices])
+    void speak(TEST_PHRASE)
+  }, [speak])
 
   useEffect(() => {
     setSupported(speechSupported && typeof SpeechSynthesisUtterance !== 'undefined')

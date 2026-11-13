@@ -38,7 +38,7 @@ export function SettingsControls({ idPrefix }: { idPrefix: string }) {
     </section>
 
     <section className="settings-group" aria-labelledby={`${idPrefix}-voice-heading`}>
-      <div className="settings-group-heading"><span className="settings-group-icon"><Headphones size={17} aria-hidden="true" /></span><div><h2 id={`${idPrefix}-voice-heading`}>Voice Coach</h2><p>Set the voice and delivery used during guided workouts.</p></div></div>
+      <div className="settings-group-heading"><span className="settings-group-icon"><Headphones size={17} aria-hidden="true" /></span><div><h2 id={`${idPrefix}-voice-heading`}>Voice Coach</h2><p>Cues use the ElevenLabs voice when it is available. The voice and pitch below apply to the browser voice used as a fallback.</p></div></div>
       <label className="settings-switch" htmlFor={`${idPrefix}-voice-enabled`}><span><strong>Voice Coach</strong><small>Read countdowns and exercise instructions aloud.</small></span><input id={`${idPrefix}-voice-enabled`} type="checkbox" role="switch" checked={preferences.voice.enabled} onChange={(event) => updateVoice({ enabled: event.target.checked })} disabled={!speechSupported} /></label>
       {!speechSupported && <p className="settings-note" role="status">Speech synthesis is not available in this browser.</p>}
       {speechSupported && voices.length === 0 && <p className="settings-note" role="status">No system voice list is available yet. Automatic voice will use your browser&apos;s default.</p>}
