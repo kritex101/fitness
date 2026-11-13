@@ -17,6 +17,10 @@ const localExerciseImages: Record<string, string> = {
   'plank': '/exercises/plank.png',
   'romanian deadlift': '/exercises/romanian-deadlift.png',
   'shoulder press': '/exercises/shoulder-press.png',
+  'supported dumbbell row': '/exercises/dumbbell-row.png',
+  'dumbbell romanian deadlift': '/exercises/romanian-deadlift.png',
+  'seated dumbbell shoulder press': '/exercises/shoulder-press.png',
+  'dumbbell biceps curl': '/exercises/bicep-curl.png',
 }
 
 function getLocalImage(name: string) {
