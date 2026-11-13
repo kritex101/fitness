@@ -1,11 +1,11 @@
+import type { ExerciseVisualGender } from '@/lib/fitness-data'
+
 export type ExerciseMediaResponse = {
-  videoUrl: string
-  source: 'musclewiki'
-  mediaType: 'video'
-  posterUrl?: string
-  exerciseId?: number
+  imageUrl: string
+  source: 'workoutx'
+  mediaType: 'image'
+  exerciseId?: string
   exerciseName?: string
-  gender?: 'male' | 'female'
-  angle?: 'front' | 'side'
+  gender?: ExerciseVisualGender
   instructions?: string[]
 }

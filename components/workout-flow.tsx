@@ -393,9 +393,9 @@ export function WorkoutFlow({
             {stage === 'rest' && <div className="rest-message"><span>RECOVER AT YOUR PACE</span><strong>Slow breath in.<br />Long breath out.</strong></div>}
           </div>
           <div className="workout-guidance-layout">
-            <aside className="workout-video-panel" aria-label={`${currentExercise.name} video demonstration`}>
+            <aside className="workout-photo-panel" aria-label={`${currentExercise.name} photo illustration`}>
               <span className="eyebrow">VISUAL GUIDE</span>
-              <h4>Watch the movement</h4>
+              <h4>Exercise photo illustration</h4>
               <ExerciseMediaGallery key={`${currentExercise.id}-${visualGender}`} exerciseName={currentExercise.name} gender={visualGender} autoLoad showInstructions={false} />
             </aside>
             <section className="tutorial-panel" aria-label={`${currentExercise.name} instructions`}>

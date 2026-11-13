@@ -1,104 +1,24 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { fitnessProfiles } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
 import type { ExerciseMediaResponse } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
-import {
-  addMuscleWikiToken,
-  createMuscleWikiProxyUrl,
-  getMuscleWikiExerciseByName,
-  getMuscleWikiMediaToken,
-  selectMuscleWikiVideo,
-  type MuscleWikiProviderStatus,
-} from '@/lib/musclewiki-api'
+import { fetchWorkoutXApi, findWorkoutXExerciseRecord, getWorkoutXPoster, normalizeWorkoutXExercise } from '@/lib/workoutx-api'
 
 export const dynamic = 'force-dynamic'
 
-const noStoreHeaders = {
-  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
-  'X-Content-Type-Options': 'nosniff',
-}
+const noStoreHeaders = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' }
 
-type ProviderStatus = MuscleWikiProviderStatus
-
-function withProviderStatuses(response: NextResponse, statuses: ProviderStatus[]) {
-  response.headers.set('Cache-Control', noStoreHeaders['Cache-Control'])
-  response.headers.set('X-Content-Type-Options', noStoreHeaders['X-Content-Type-Options'])
-  response.headers.set('X-Media-Provider-Statuses', JSON.stringify(statuses))
-  return response
-}
-
-function profileGender(value: string | null | undefined): ExerciseVisualGender {
-  return value === 'woman' ? 'female' : 'male'
-}
-
-async function fetchMuscleWikiMedia(
-  name: string,
-  gender: ExerciseVisualGender,
-  apiKey: string,
-  statuses: ProviderStatus[],
-  forceRefreshToken = false,
-): Promise<ExerciseMediaResponse | null> {
-  const recordStatus = (status: ProviderStatus) => statuses.push(status)
-  const exercise = await getMuscleWikiExerciseByName(name, gender, apiKey, recordStatus)
-  if (!exercise) return null
-
-  const video = selectMuscleWikiVideo(exercise.videos)
-  if (!video) return null
-
-  const mediaToken = await getMuscleWikiMediaToken(apiKey, recordStatus, forceRefreshToken)
-  const canUseServerStream = mediaToken.status === 501 || mediaToken.status === 503 || mediaToken.status === 'network_error'
-  if (!mediaToken.token && !canUseServerStream) return null
-
-  const videoUrl = mediaToken.token
-    ? addMuscleWikiToken(video.url, mediaToken.token)
-    : createMuscleWikiProxyUrl(exercise.id, gender, video.angle, 'video')
-  const posterUrl = video.posterUrl
-    ? mediaToken.token
-      ? addMuscleWikiToken(video.posterUrl, mediaToken.token)
-      : createMuscleWikiProxyUrl(exercise.id, gender, video.angle, 'poster')
-    : undefined
-
-  return {
-    videoUrl,
-    posterUrl,
-    source: 'musclewiki',
-    mediaType: 'video',
-    exerciseId: exercise.id,
-    exerciseName: exercise.name,
-    gender,
-    angle: video.angle,
-    instructions: exercise.instructions,
-  }
-}
-
-function resolveProviderFailure(statuses: ProviderStatus[]) {
-  const authorizationFailure = statuses.find(({ status }) => status === 401 || status === 403)
-  if (authorizationFailure?.status === 401) {
-    return { status: 401, message: 'MuscleWiki rejected the API key. Check that it is active and authorized for API access.' }
-  }
-  if (authorizationFailure?.status === 403) {
-    return { status: 403, message: 'MuscleWiki denied direct API access. The API key must have a TESTING plan or higher to stream videos in this app.' }
-  }
-  if (statuses.some(({ status }) => status === 429)) {
-    return { status: 503, message: 'MuscleWiki is rate-limiting video requests. Try again shortly.' }
-  }
-  if (statuses.some(({ status }) => status === 'network_error' || (typeof status === 'number' && status >= 500))) {
-    return { status: 502, message: 'MuscleWiki is temporarily unavailable. Try loading the video again.' }
-  }
-  return { status: 404, message: 'MuscleWiki has no matching video for this exercise and model.' }
-}
-
-function errorResponse(message: string, status: number, statuses: ProviderStatus[] = []) {
-  return withProviderStatuses(NextResponse.json({ error: message }, { status }), statuses)
+function errorResponse(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status, headers: noStoreHeaders })
 }
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) return errorResponse('Sign in to view exercise videos.', 401)
+  if (!session?.user) return errorResponse('Sign in to view exercise photo illustrations.', 401)
 
   const searchParams = new URL(request.url).searchParams
   const name = (searchParams.get('name') ?? '').trim().replace(/\s+/g, ' ')
@@ -110,26 +30,52 @@ export async function GET(request: Request) {
     .from(fitnessProfiles)
     .where(eq(fitnessProfiles.userId, session.user.id))
     .limit(1)
-  if (!profile) return errorResponse('Complete your profile before viewing exercise videos.', 403)
+  if (!profile) return errorResponse('Complete your profile before viewing exercise photo illustrations.', 403)
 
-  const apiKey = process.env.MUSCLEWIKI_API_KEY?.trim()
-  if (!apiKey) return errorResponse('MuscleWiki video access is not configured right now.', 503)
+  const model: ExerciseVisualGender = profile.gender === 'woman' ? 'female' : 'male'
+  const apiKey = process.env.WORKOUTX_API_KEY?.trim() ?? process.env.WORKOUTX_KEY?.trim()
+  if (!apiKey) return errorResponse('WorkoutX photo access is not configured right now.', 503)
 
-  const statuses: ProviderStatus[] = []
-  const result = await fetchMuscleWikiMedia(
-    name,
-    profileGender(profile.gender),
-    apiKey,
-    statuses,
-    Number(searchParams.get('attempt')) > 0,
-  )
-
-  if (result) {
-    console.log(`[v0] /api/media selected MuscleWiki for ${result.exerciseName}`)
-    return withProviderStatuses(NextResponse.json<ExerciseMediaResponse>(result), statuses)
+  const searchParamsForApi = new URLSearchParams({ name, model, limit: '10', media: 'false' })
+  const searchResult = await fetchWorkoutXApi('/exercises', searchParamsForApi, apiKey)
+  if (!searchResult.ok) {
+    const status = searchResult.status === 429 ? 503 : 502
+    const message = searchResult.status === 401 || searchResult.status === 403
+      ? 'WorkoutX rejected the server API key. Check its access in project settings.'
+      : searchResult.status === 429
+        ? 'WorkoutX is rate-limiting photo requests. Try again shortly.'
+        : 'WorkoutX is temporarily unavailable. Try loading the photo again.'
+    return errorResponse(message, status)
   }
 
-  const failure = resolveProviderFailure(statuses)
-  console.log(`[v0] /api/media MuscleWiki unavailable (${failure.status})`)
-  return errorResponse(failure.message, failure.status, statuses)
+  const exerciseRecord = findWorkoutXExerciseRecord(searchResult.data, name)
+  const exercise = exerciseRecord ? normalizeWorkoutXExercise(exerciseRecord) : null
+  if (!exercise) return errorResponse('WorkoutX has no matching exercise photo for this movement.', 404)
+
+  const mediaParams = new URLSearchParams({ model })
+  const mediaResult = await fetchWorkoutXApi(`/exercises/${encodeURIComponent(exercise.id)}/media`, mediaParams, apiKey)
+  if (!mediaResult.ok) {
+    const status = mediaResult.status === 429 ? 503 : 502
+    const message = mediaResult.status === 401 || mediaResult.status === 403
+      ? 'WorkoutX rejected the server API key. Check its access in project settings.'
+      : mediaResult.status === 429
+        ? 'WorkoutX is rate-limiting photo requests. Try again shortly.'
+        : 'WorkoutX could not load a photo for this exercise right now.'
+    return errorResponse(message, status)
+  }
+
+  const imageUrl = getWorkoutXPoster(mediaResult.data)
+  if (!imageUrl) return errorResponse('WorkoutX returned no valid photo illustration for this exercise.', 404)
+
+  const result: ExerciseMediaResponse = {
+    imageUrl,
+    source: 'workoutx',
+    mediaType: 'image',
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+    gender: model,
+    instructions: exercise.instructions,
+  }
+
+  return NextResponse.json(result, { headers: noStoreHeaders })
 }

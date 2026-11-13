@@ -1,37 +1,26 @@
 'use client'
 
-import { Dumbbell, Play } from 'lucide-react'
+import { Dumbbell, Image as ImageIcon } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import useSWR from 'swr'
-import { InlineVideoPlayer } from '@/components/inline-video-player'
 import type { ExerciseMediaResponse } from '@/lib/exercise-media-types'
 import type { ExerciseVisualGender } from '@/lib/fitness-data'
 
 async function fetchExerciseMedia(url: string): Promise<ExerciseMediaResponse> {
   const response = await fetch(url, { cache: 'no-store' })
-  const providerStatuses = response.headers.get('x-media-provider-statuses')
-  if (providerStatuses) {
-    try {
-      const statuses = JSON.parse(providerStatuses) as Array<{ provider: string; stage: string; status: number | string }>
-      console.log('[v0] MuscleWiki video API statuses:', statuses.map(({ stage, status }) => `${stage}: ${status}`).join(', '))
-    } catch {
-      console.log('[v0] MuscleWiki video API status header was invalid')
-    }
-  }
-
   const payload = await response.json().catch(() => null) as (ExerciseMediaResponse & { error?: string }) | null
-  if (!response.ok) throw new Error(payload?.error ?? `MuscleWiki video request failed with HTTP ${response.status}.`)
-  if (!payload || typeof payload.videoUrl !== 'string' || payload.source !== 'musclewiki' || payload.mediaType !== 'video') {
-    throw new Error('MuscleWiki returned an incomplete video response.')
+  if (!response.ok) throw new Error(payload?.error ?? `WorkoutX photo request failed with HTTP ${response.status}.`)
+  if (!payload || typeof payload.imageUrl !== 'string' || payload.source !== 'workoutx' || payload.mediaType !== 'image') {
+    throw new Error('WorkoutX returned an incomplete photo response.')
   }
   return payload
 }
 
 function MovementPreviewPlaceholder({ loading, error, onRetry }: { loading: boolean; error?: string; onRetry?: () => void }) {
-  const title = loading ? 'Finding a MuscleWiki video' : error ? 'MuscleWiki video unavailable' : 'Movement preview'
+  const title = loading ? 'Finding a WorkoutX photo' : error ? 'WorkoutX photo unavailable' : 'Exercise photo illustration'
   const description = loading
-    ? 'Checking for a matching MuscleWiki exercise video.'
-    : error ?? 'Load the matching MuscleWiki video when you are ready.'
+    ? 'Loading a static pose illustration for this movement.'
+    : error ?? 'Load a WorkoutX photo illustration when you are ready.'
 
   return (
     <div className="exercise-media-frame exercise-media-frame-placeholder" role={error ? 'alert' : 'status'}>
@@ -77,6 +66,7 @@ export function ExerciseMediaGallery({
 }) {
   const [isOpen, setIsOpen] = useState(autoLoad)
   const [retryVersion, setRetryVersion] = useState(0)
+  const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const params = new URLSearchParams({ name: exerciseName, gender })
   if (retryVersion > 0) params.set('attempt', String(retryVersion))
 
@@ -88,51 +78,52 @@ export function ExerciseMediaGallery({
   })
 
   const retryMedia = useCallback(() => {
+    setImageLoadFailed(false)
     setRetryVersion((version) => version + 1)
     void mutate()
   }, [mutate])
 
   const media = data ?? null
   const instructions = media?.instructions?.length ? media.instructions : fallbackInstructions
-  const mediaDescription = media?.angle
-    ? `${media.angle} camera angle · ${media.gender ?? gender} model`
-    : `${gender} model`
+  const mediaDescription = `${media?.gender ?? gender} model · static photo illustration`
 
   if (!isOpen) {
     return (
-      <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
-        <button type="button" className="exercise-media-load" onClick={() => setIsOpen(true)}><Play size={14} aria-hidden="true" /> Load MuscleWiki video</button>
+      <div className="exercise-media-gallery" aria-label={`${gender}-model WorkoutX photo illustrations`}>
+        <button type="button" className="exercise-media-load" onClick={() => setIsOpen(true)}><ImageIcon size={14} aria-hidden="true" /> Load WorkoutX photo</button>
         {showInstructions && <ExerciseInstructions instructions={fallbackInstructions} />}
       </div>
     )
   }
 
-  if (!media) {
+  if (!media || imageLoadFailed) {
     return (
-      <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
-        <MovementPreviewPlaceholder loading={isLoading} error={error?.message} onRetry={!isLoading ? retryMedia : undefined} />
-        {showInstructions && <ExerciseInstructions instructions={fallbackInstructions} />}
+      <div className="exercise-media-gallery" aria-label={`${gender}-model WorkoutX photo illustrations`}>
+        <MovementPreviewPlaceholder loading={!media && isLoading} error={imageLoadFailed ? 'The WorkoutX photo could not be displayed.' : error?.message} onRetry={!isLoading ? retryMedia : undefined} />
+        {showInstructions && <ExerciseInstructions instructions={instructions} />}
       </div>
     )
   }
 
   return (
-    <div className="exercise-media-gallery" aria-label={`${gender}-model MuscleWiki demonstrations`}>
+    <div className="exercise-media-gallery" aria-label={`${gender}-model WorkoutX photo illustrations`}>
       <div className="exercise-media-list">
         <figure className="exercise-media-card">
-          <InlineVideoPlayer
-            key={`${exerciseName}:${gender}:${media.videoUrl}`}
-            src={media.videoUrl}
-            poster={media.posterUrl}
-            title={`${media.exerciseName ?? exerciseName} MuscleWiki demonstration`}
-            description={mediaDescription}
-            className="exercise-inline-player"
-            onRetry={retryMedia}
-          />
+          <div className="exercise-media-frame">
+            <img
+              key={`${exerciseName}:${gender}:${media.imageUrl}`}
+              className="exercise-media-player"
+              src={media.imageUrl}
+              alt={`${media.exerciseName ?? exerciseName} movement photo illustration for a ${media.gender ?? gender} model`}
+              loading={autoLoad ? 'eager' : 'lazy'}
+              decoding="async"
+              onLoad={() => setImageLoadFailed(false)}
+              onError={() => setImageLoadFailed(true)}
+            />
+          </div>
           <figcaption className="exercise-media-caption">
-            <strong>MuscleWiki</strong>
+            <strong>WorkoutX</strong>
             <span>{mediaDescription}</span>
-            <small className="exercise-media-attribution">Video and branded media provided by MuscleWiki, which retains rights to its content and trademarks.</small>
           </figcaption>
         </figure>
       </div>

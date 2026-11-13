@@ -2,7 +2,7 @@
 
 import { Search } from 'lucide-react'
 import { useState } from 'react'
-import { ExerciseDbBrowser } from '@/components/exercise-db-browser'
+import { WorkoutXExerciseBrowser } from '@/components/workoutx-exercise-browser'
 import { ExerciseMediaGallery } from '@/components/exercise-media-gallery'
 import { ExerciseVisualGenderToggle } from '@/components/exercise-visual-gender-toggle'
 import { bodyAreas, type BodyArea, type ExerciseVisualGender, type PlannedExercise } from '@/lib/fitness-data'
@@ -24,7 +24,7 @@ export function ExerciseLibrary({ exercises, visualGender: accountVisualGender, 
   const collectionPicker = (
     <div className="exercise-collection-picker" role="group" aria-label="Choose an exercise collection">
       {exercises.length > 0 && <button type="button" className={`exercise-collection-option ${selectedCollection === 'plan' ? 'exercise-collection-selected' : ''}`} aria-pressed={selectedCollection === 'plan'} onClick={() => setSelectedCollection('plan')}><strong>Your plan</strong><span>{exercises.length} planned movements</span></button>}
-      <button type="button" className={`exercise-collection-option ${selectedCollection === 'all' ? 'exercise-collection-selected' : ''}`} aria-pressed={selectedCollection === 'all'} onClick={() => setSelectedCollection('all')}><strong>ExerciseDB catalog</strong><span>Search by target or name</span></button>
+      <button type="button" className={`exercise-collection-option ${selectedCollection === 'all' ? 'exercise-collection-selected' : ''}`} aria-pressed={selectedCollection === 'all'} onClick={() => setSelectedCollection('all')}><strong>WorkoutX catalog</strong><span>Search by target or name</span></button>
     </div>
   )
 
@@ -32,7 +32,7 @@ export function ExerciseLibrary({ exercises, visualGender: accountVisualGender, 
     return (
       <div className="exercise-library-wrap">
         {collectionPicker}
-        <ExerciseDbBrowser gender={visualGender} />
+        <WorkoutXExerciseBrowser gender={visualGender} />
       </div>
     )
   }
@@ -65,8 +65,8 @@ export function ExerciseLibrary({ exercises, visualGender: accountVisualGender, 
               <p className="exercise-equipment">{exercise.equipment}</p>
               <div className="prescription">{exercise.duration ? <><strong>Suggested</strong><span>{exercise.duration}</span><span>comfortable pace</span></> : <><strong>{sets} sets</strong><span>{repMin}–{repMax} reps</span><span>{restSeconds}s rest</span></>}</div>
               <div className="library-exercise-detail">
-                <aside className="library-video-panel" aria-label={`${exercise.name} video demonstration`}>
-                  <span className="eyebrow">MOVEMENT GUIDE</span>
+                <aside className="library-photo-panel" aria-label={`${exercise.name} photo illustration`}>
+                  <span className="eyebrow">PHOTO ILLUSTRATION</span>
                   <ExerciseMediaGallery exerciseName={exercise.name} gender={visualGender} fallbackInstructions={exercise.instructions} />
                   <div className="library-instructions-panel">
                     <p className="coaching-tip"><strong>Coach&apos;s cue</strong> {exercise.coachingTip}</p>
